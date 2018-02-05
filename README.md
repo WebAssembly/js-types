@@ -1,5 +1,17 @@
 [![Build Status](https://travis-ci.org/WebAssembly/spec.svg?branch=master)](https://travis-ci.org/WebAssembly/spec)
 
+# Type Reflection Proposal for WebAssembly JS API
+
+This repository is a clone of github.com/WebAssembly/spec/. It is meant for
+discussion, prototype specification and implementation of a proposal to add
+type reflection to the WebAssembly JavaScript API.
+
+See the [overview](proposals/js-types/Overview.md) for a summary of the
+proposal.
+
+A formatted version of the spec, including this propsal, is available here: [webassembly.github.io/js-types](https://webassembly.github.io/js-types).
+
+
 # spec
 
 This repository holds the sources for the WebAssembly draft specification
