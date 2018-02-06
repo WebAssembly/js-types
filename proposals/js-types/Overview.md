@@ -4,8 +4,8 @@
 
 Wasm is typed, and its [types](https://webassembly.github.io/spec/core/syntax/types.html) carry information that can be useful and important to clients interacting with Wasm modules and objects through the JS API. For example, types describe the form of imports and exports, including the size limits of memories and tables or the mutability of globals. The desire to query information like this from JS has come up several times, for example, with the following issues:
 
-* WebAssembly/design#1046
-* WebAssembly/threads#87
+* [WebAssembly/design#1046](https://github.com/WebAssembly/design/issues/1046)
+* [WebAssembly/threads#87](https://github.com/WebAssembly/threads/issues/87)
 * others?
 
 For example, it is needed to write a JS-hosted linker or an adaptor mechanism for modules.
