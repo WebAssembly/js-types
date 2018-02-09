@@ -200,7 +200,8 @@ let instance = WebAssembly.instantiate(module, mockImports(module));
 The following example shows how to use the `WebAssembly.Function` constructor to add a JavaScript function to a table:
 ```
 function print(n) { console.log(n + "\n") }
-let table - new Table({element: "anyfunc", minimum: 10});
+
+let table = new Table({element: "anyfunc", minimum: 10});
 let func = new WebAssembly.Function({parameters: ["i32"], results: []}, print);
 table.set(0, func);
 ```
