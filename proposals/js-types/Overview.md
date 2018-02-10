@@ -37,13 +37,15 @@ type GlobalType = {value: ValueType, mutable: Bool}
 type MemoryType = {limits: Limits}
 type TableType = {limits: Limits, element: ElemType}
 type Limits = {min: num, max?: num}
-type FuncType = {params: ValueType[], results: ValueType[]}
-type ExternType = {func: FuncType} | {memory: MemoryType} | {table: TableType} | {global: GlobalType}
+type FunctionType = {params: ValueType[], results: ValueType[]}
+type ExternType = {kind: "function", type: FunctionType} | {kind: "memory", type: MemoryType} | {kind: "table", type: TableType} | {kind: "global", type: GlobalType}
 ```
 
 Given the pre-existing JS API, we can repurpose (and rename) the existing descriptor interfaces of the API as types, and add the missing one for functions and extern types. The only difference to the above is that limits are inlined into memory and table types.
 
 More concretely:
+
+* Rename [ImportExportKind](https://webassembly.github.io/spec/js-api/index.html#modules) to ExternKind
 
 * Rename [MemoryDescriptor](https://webassembly.github.io/spec/js-api/index.html#memories) to MemoryType
 
@@ -61,23 +63,14 @@ More concretely:
   };
   ```
 
-* Add dictionaries and typedef for external types:
+* Add a dictionary for external types:
   ```
-  typedef (ExternFunctionType or ExternTableType or ExternMemoryType or ExternGlobalType) ExternType;
-  
-  dictionary ExternFunctionType {
-    required FuncType func;
-  };
-  dictionary ExternTableType {
-    required TableType table;
-  };
-  dictionary ExternMemoryType {
-    required MemoryType memory;
-  };
-  dictionary ExternGlobalType {
-    required GlobalType global;
+  dictionary ExternType {
+    required ExternKind kind;
+    required (FunctionType or TableType or MemoryType or GlobalType) type;
   };
   ```
+  As an additional constraint, the content of the `type` field must match that content of the `kind` field.
 
 ### Naming of size limits
 
@@ -100,12 +93,12 @@ Note: The last two points are simply a backwards compatibility measure that enab
 
 Types can be queried by adding the following attributes to the API.
 
-* Extend both [ModuleExportDescriptor](https://webassembly.github.io/spec/js-api/index.html#modules) and [ModuleImportDescriptor](https://webassembly.github.io/spec/js-api/index.html#modules) with an attribute as follows:
+* Make [ModuleExportDescriptor](https://webassembly.github.io/spec/js-api/index.html#modules) and [ModuleImportDescriptor](https://webassembly.github.io/spec/js-api/index.html#modules) derive from `ExternType`:
   ```
-  required ExternType type;
+  dictionary ModuleExportDescriptor : ExternType { ... };
+  dictionary ModuleImportDescriptor : ExternType { ... };
   ```
-
-  Note: Given that the descriptors already have a `kind` field, it would be enough to declare `type` as `(FunctionType or TableType or MemoryType or GlobalType)`. However, that makes it harder to extract type information in a self-contained manner. On the other hand, with the proposed design, it is always possible to perform `desc[desc.kind]` to get to the bare type.
+  The `kind` field is removed from both definitions and instead inherited, along with the additional `type` field.
 
 * Extend interface [Memory](https://webassembly.github.io/spec/js-api/index.html#memories) with attribute
   ```
@@ -122,7 +115,7 @@ Types can be queried by adding the following attributes to the API.
   static GlobalType type(Global global);
   ```
 
-  Note: Following existing practice of JavaScript's `Object` API as well as the existing reflection functions on `WebAssembly.Module`, the above are provided as static functions instead of attributes.
+  Note: Following existing practice of JavaScript's `Object` API as well as the existing reflection functions on `WebAssembly.Module`, the above `type` methods are provided as static functions instead of attributes.
 
 * Overload constructor [Memory](https://webassembly.github.io/spec/js-api/index.html#memories) (see above)
   ```
@@ -156,9 +149,9 @@ Concretely, the change is the following:
 
 * Introduce a new class `WebAssembly.Function` that is a subclass of `Function` as follows
   ```
-  [LegacyNamespace=WebAssembly, Constructor(FuncType type, function func), Exposed=(Window,Worker,Worklet)]
+  [LegacyNamespace=WebAssembly, Constructor(FunctionType type, function func), Exposed=(Window,Worker,Worklet)]
   interface Function : global.Function {
-    static FuncType type(Function func);
+    static FunctionType type(Function func);
   };
   ```
 
@@ -175,13 +168,13 @@ function mockImports(module) {
     let value;
     switch (import.kind) {
       case "table":
-        value = new WebAssembly.Table(import.type.table);
+        value = new WebAssembly.Table(import.type);
         break;
       case "memory":
-        value = new WebAssembly.Memory(import.type.memory);
+        value = new WebAssembly.Memory(import.type);
         break;
       case "global":
-        value = new WebAssembly.Global(import.type.global, undefined);
+        value = new WebAssembly.Global(import.type, undefined);
         break;
       case "function":
         value = () => { raise "unimplemented" };
@@ -197,7 +190,7 @@ let module = ...;
 let instance = WebAssembly.instantiate(module, mockImports(module));
 ```
 
-The following example shows how to use the `WebAssembly.Function` constructor to add a JavaScript function to a table:
+The following example shows how to use the `WebAssembly.Function` constructor to add a JavaScript function to a table, using multiple different types:
 ```
 function print(...args) {
   for (let x of args) console.log(x + "\n")
