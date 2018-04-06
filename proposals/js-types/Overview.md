@@ -177,7 +177,7 @@ function mockImports(module) {
         value = new WebAssembly.Global(import.type, undefined);
         break;
       case "function":
-        value = () => { raise "unimplemented" };
+        value = () => { throw "unimplemented" };
         break;
     }
     if (! (import.module in mock)) mock[import.module] = {};
