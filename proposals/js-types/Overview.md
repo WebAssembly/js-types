@@ -31,13 +31,13 @@ The latter also provides a constructor for explicitly creating Wasm exported fun
 All Wasm types can be defined by a simple grammar. This grammar could be mapped to JSON-style JS objects in a direct and extensible manner. For example, using TypeScript-style type definitions:
 
 ```
-type ValueType = "i32" | "i64" | "f32" | "f64"
+type NumType = "i32" | "i64" | "f32" | "f64"
 type ElemType = "anyfunc"
-type GlobalType = {value: ValueType, mutable: Bool}
+type GlobalType = {value: NumType, mutable: Bool}
 type MemoryType = {limits: Limits}
 type TableType = {limits: Limits, element: ElemType}
 type Limits = {min: num, max?: num}
-type FunctionType = {params: ValueType[], results: ValueType[]}
+type FunctionType = {params: NumType[], results: NumType[]}
 type ExternType = {kind: "function", type: FunctionType} | {kind: "memory", type: MemoryType} | {kind: "table", type: TableType} | {kind: "global", type: GlobalType}
 ```
 
@@ -58,8 +58,8 @@ More concretely:
 * Add a dictionary for function types:
   ```
   dictionary FunctionType {
-    required sequence<ValueType> parameters;
-    required sequence<ValueType> results;
+    required sequence<NumType> parameters;
+    required sequence<NumType> results;
   };
   ```
 
