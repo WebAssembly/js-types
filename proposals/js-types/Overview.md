@@ -74,11 +74,11 @@ More concretely:
 
 ### Naming of size limits
 
-There is one further quibble. The current definition of MemoryDescriptor and TableDescriptor names the attribute representing the minimum size `initial`. That makes sense for its use as an argument to the respective constructor, but nowhere else: with the more general use as a type, this attribute merely reflects a current or minimum required size, possibly after growing. For imports in particular, the minimum size in a type may be larger than both the current or initial size of an object matching that import.
+There is one further quibble. The current definition of MemoryDescriptor and TableDescriptor names the attribute representing the minimum size `initial`. That makes sense for its use as an argument to the respective constructor, but nowhere else: with the more general use as a type, this attribute merely reflects a current or minimum required size, possibly after growing. For imports in particular, the minimum size in their type may be larger than the initial size of an object matching that import (and smaller than its current size).
 
 Hence, the descriptor currently used for table and memory constructors does not properly represent the notion of type. On the other hand, it is useful for constructors to directly understand the types delivered by the reflection functions (see the [example](#example) below).
 
-I hance propose to allow both `minimum` and `initial` as a name of that field. That is, they are both optional fields of the interface, but with the meta requirement that exactly one of them must be present. However, such a constraint cannot be epressed in WebIDL directly, but instead requires using auxiliary interfaces as follows:
+I hence propose to allow both `minimum` and `initial` as a name of that field. That is, they are both optional fields of the interface, but with the meta requirement that exactly one of them must be present. However, such a constraint cannot be epressed in WebIDL directly, but instead requires using auxiliary interfaces as follows:
 
 * In both [MemoryDescriptor/Type](https://webassembly.github.io/spec/js-api/index.html#memories) and [TableDescriptor/Type](https://webassembly.github.io/spec/js-api/index.html#tables), rename `initial` to `minimum`
 
