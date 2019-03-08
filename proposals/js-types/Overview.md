@@ -36,7 +36,7 @@ type ElemType = "anyfunc"
 type GlobalType = {value: ValueType, mutable: boolean}
 type MemoryType = {limits: Limits}
 type TableType = {limits: Limits, element: ElemType}
-type Limits = {min: number, max?: number}
+type Limits = {min: number, max?: number}  // see below
 type FunctionType = {params: ValueType[], results: ValueType[]}
 type ExternType = {kind: "function", type: FunctionType} | {kind: "memory", type: MemoryType} | {kind: "table", type: TableType} | {kind: "global", type: GlobalType}
 ```
