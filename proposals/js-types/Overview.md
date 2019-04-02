@@ -168,24 +168,24 @@ The following function takes a `WebAssembly.Module` and creates a suitable mock 
 ```JavaScript
 function mockImports(module) {
   let mock = {};
-  for (let import of WebAssembly.Module.imports(module)) {
+  for (let imp of WebAssembly.Module.imports(module)) {
     let value;
-    switch (import.kind) {
+    switch (imp.kind) {
       case "table":
-        value = new WebAssembly.Table(import.type);
+        value = new WebAssembly.Table(imp.type);
         break;
       case "memory":
-        value = new WebAssembly.Memory(import.type);
+        value = new WebAssembly.Memory(imp.type);
         break;
       case "global":
-        value = new WebAssembly.Global(import.type, undefined);
+        value = new WebAssembly.Global(imp.type, undefined);
         break;
       case "function":
         value = () => { throw "unimplemented" };
         break;
     }
-    if (! (import.module in mock)) mock[import.module] = {};
-    mock[import.module][import.name] = value;
+    if (! (imp.module in mock)) mock[imp.module] = {};
+    mock[imp.module][imp.name] = value;
   }
   return mock;
 }
