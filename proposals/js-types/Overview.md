@@ -30,15 +30,19 @@ The latter also provides a constructor for explicitly creating Wasm exported fun
 
 All Wasm types can be defined by a simple grammar. This grammar could be mapped to JSON-style JS objects in a direct and extensible manner. For example, using TypeScript-style type definitions:
 
-```
+```TypeScript
 type ValueType = "i32" | "i64" | "f32" | "f64"
 type ElemType = "anyfunc"
 type GlobalType = {value: ValueType, mutable: boolean}
 type MemoryType = {limits: Limits}
 type TableType = {limits: Limits, element: ElemType}
 type Limits = {min: number, max?: number}  // see below
-type FunctionType = {params: ValueType[], results: ValueType[]}
-type ExternType = {kind: "function", type: FunctionType} | {kind: "memory", type: MemoryType} | {kind: "table", type: TableType} | {kind: "global", type: GlobalType}
+type FunctionType = {parameters: ValueType[], results: ValueType[]}
+type ExternType =
+  {kind: "function", type: FunctionType} |
+  {kind: "memory",   type: MemoryType} |
+  {kind: "table",    type: TableType} |
+  {kind: "global",   type: GlobalType}
 ```
 
 Given the pre-existing JS API, we can repurpose (and rename) the existing descriptor interfaces of the API as types, and add the missing one for functions and extern types. The only difference to the above is that limits are inlined into memory and table types.
@@ -56,7 +60,7 @@ More concretely:
   Note: These renamings of spec-internal definitions are purely cosmetic and do not affect the observable API.
 
 * Add a dictionary for function types:
-  ```
+  ```WebIDL
   dictionary FunctionType {
     required sequence<ValueType> parameters;
     required sequence<ValueType> results;
@@ -64,7 +68,7 @@ More concretely:
   ```
 
 * Add a dictionary for external types:
-  ```
+  ```WebIDL
   dictionary ExternType {
     required ExternKind kind;
     required (FunctionType or TableType or MemoryType or GlobalType) type;
@@ -94,41 +98,41 @@ Note: The last two points are simply a backwards compatibility measure that enab
 Types can be queried by adding the following attributes to the API.
 
 * Make [ModuleExportDescriptor](https://webassembly.github.io/spec/js-api/index.html#modules) and [ModuleImportDescriptor](https://webassembly.github.io/spec/js-api/index.html#modules) derive from `ExternType`:
-  ```
+  ```WebIDL
   dictionary ModuleExportDescriptor : ExternType { ... };
   dictionary ModuleImportDescriptor : ExternType { ... };
   ```
   The `kind` field is removed from both definitions and instead inherited, along with the additional `type` field.
 
 * Extend interface [Memory](https://webassembly.github.io/spec/js-api/index.html#memories) with attribute
-  ```
+  ```WebIDL
   static MemoryType type(Memory memory);
   ```
 
 * Extend interface [Table](https://webassembly.github.io/spec/js-api/index.html#tables) with attribute
-  ```
+  ```WebIDL
   static TableType type(Table table);
   ```
 
 * Extend interface [Global](https://github.com/WebAssembly/mutable-global/blob/master/proposals/mutable-global/Overview.md#webassemblyglobal-objects) with
-  ```
+  ```WebIDL
   static GlobalType type(Global global);
   ```
 
   Note: Following existing practice of JavaScript's `Object` API as well as the existing reflection functions on `WebAssembly.Module`, the above `type` methods are provided as static functions instead of attributes.
 
 * Overload constructor [Memory](https://webassembly.github.io/spec/js-api/index.html#memories) (see above)
-  ```
+  ```WebIDL
   Constructor(MemoryType or InitialMemoryType type)
   ```
 
 * Overload constructor [Table](https://webassembly.github.io/spec/js-api/index.html#tables) (see above)
-  ```
+  ```WebIDL
   Constructor(TableType or InitialTableType type)
   ```
 
 * Adjust constructor [Global](https://github.com/WebAssembly/mutable-global/blob/master/proposals/mutable-global/Overview.md#webassemblyglobal-objects) to accept a GlobalType and its initialisation value separately:
-  ```
+  ```WebIDL
   Constructor(GlobalType type, any value)
   ```
 
@@ -148,7 +152,7 @@ This part of the proposal refines Wasm exported functions to have a suitable sub
 Concretely, the change is the following:
 
 * Introduce a new class `WebAssembly.Function` that is a subclass of `Function` as follows
-  ```
+  ```WebIDL
   [LegacyNamespace=WebAssembly, Constructor(FunctionType type, function func), Exposed=(Window,Worker,Worklet)]
   interface Function : global.Function {
     static FunctionType type(Function func);
@@ -161,7 +165,7 @@ Concretely, the change is the following:
 ## Example
 
 The following function takes a `WebAssembly.Module` and creates a suitable mock import object for instantiating it:
-```
+```JavaScript
 function mockImports(module) {
   let mock = {};
   for (let import of WebAssembly.Module.imports(module)) {
@@ -191,7 +195,7 @@ let instance = WebAssembly.instantiate(module, mockImports(module));
 ```
 
 The following example shows how to use the `WebAssembly.Function` constructor to add a JavaScript function to a table, using multiple different types:
-```
+```JavaScript
 function print(...args) {
   for (let x of args) console.log(x + "\n")
 }
