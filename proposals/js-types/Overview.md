@@ -45,7 +45,7 @@ type ExternType =
   {kind: "global",   type: GlobalType}
 ```
 
-Given the pre-existing JS API, we can repurpose (and rename) the existing descriptor interfaces of the API as types, and add the missing one for functions and extern types. The only difference to the above is that limits are inlined into memory and table types.
+Given the pre-existing JS API, we can repurpose (and rename) the existing descriptor interfaces of the API as types, and add the missing one for functions and extern types. The only difference to the above is that limits are inlined into memory and table types (and have longer names).
 
 More concretely:
 
