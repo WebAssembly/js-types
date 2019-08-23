@@ -161,6 +161,8 @@ Concretely, the change is the following:
 
 * All exported functions are of class `WebAssembly.Function`.
 
+* Functions constructed by `WebAssembly.Function` behave no different from other exported functions taken from a module's exports. More specifically, they have a [[FunctionAddress]] internal slot which identifies them as exported functions.
+
 
 ## Example
 
