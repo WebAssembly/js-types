@@ -5,7 +5,7 @@
  *
  *   x : var
  *   v : value
- *   e : instrr
+ *   e : instr
  *   f : func
  *   m : module_
  *
@@ -23,13 +23,14 @@ open Types
 
 module IntOp =
 struct
-  type unop = Clz | Ctz | Popcnt
+  type unop = Clz | Ctz | Popcnt | ExtendS of pack_size
   type binop = Add | Sub | Mul | DivS | DivU | RemS | RemU
              | And | Or | Xor | Shl | ShrS | ShrU | Rotl | Rotr
   type testop = Eqz
   type relop = Eq | Ne | LtS | LtU | GtS | GtU | LeS | LeU | GeS | GeU
   type cvtop = ExtendSI32 | ExtendUI32 | WrapI64
              | TruncSF32 | TruncUF32 | TruncSF64 | TruncUF64
+             | TruncSSatF32 | TruncUSatF32 | TruncSSatF64 | TruncUSatF64
              | ReinterpretFloat
 end
 
@@ -57,8 +58,8 @@ type cvtop = (I32Op.cvtop, I64Op.cvtop, F32Op.cvtop, F64Op.cvtop) Values.op
 
 type 'a memop =
   {ty : value_type; align : int; offset : Memory.offset; sz : 'a option}
-type loadop = (Memory.mem_size * Memory.extension) memop
-type storeop = Memory.mem_size memop
+type loadop = (pack_size * extension) memop
+type storeop = pack_size memop
 
 
 (* Expressions *)
@@ -67,30 +68,32 @@ type var = int32 Source.phrase
 type literal = Values.value Source.phrase
 type name = int list
 
+type block_type = VarBlockType of var | ValBlockType of value_type option
+
 type instr = instr' Source.phrase
 and instr' =
   | Unreachable                       (* trap unconditionally *)
   | Nop                               (* do nothing *)
-  | Block of stack_type * instr list  (* execute in sequence *)
-  | Loop of stack_type * instr list   (* loop header *)
-  | If of stack_type * instr list * instr list  (* conditional *)
+  | Drop                              (* forget a value *)
+  | Select                            (* branchless conditional *)
+  | Block of block_type * instr list  (* execute in sequence *)
+  | Loop of block_type * instr list   (* loop header *)
+  | If of block_type * instr list * instr list  (* conditional *)
   | Br of var                         (* break to n-th surrounding label *)
   | BrIf of var                       (* conditional break *)
   | BrTable of var list * var         (* indexed break *)
   | Return                            (* break from function body *)
   | Call of var                       (* call function *)
   | CallIndirect of var               (* call function through table *)
-  | Drop                              (* forget a value *)
-  | Select                            (* branchless conditional *)
-  | GetLocal of var                   (* read local variable *)
-  | SetLocal of var                   (* write local variable *)
-  | TeeLocal of var                   (* write local variable and keep value *)
-  | GetGlobal of var                  (* read global variable *)
-  | SetGlobal of var                  (* write global variable *)
+  | LocalGet of var                   (* read local variable *)
+  | LocalSet of var                   (* write local variable *)
+  | LocalTee of var                   (* write local variable and keep value *)
+  | GlobalGet of var                  (* read global variable *)
+  | GlobalSet of var                  (* write global variable *)
   | Load of loadop                    (* read memory at address *)
   | Store of storeop                  (* write memory at address *)
-  | CurrentMemory                     (* size of linear memory *)
-  | GrowMemory                        (* grow linear memory *)
+  | MemorySize                        (* size of linear memory *)
+  | MemoryGrow                        (* grow linear memory *)
   | Const of literal                  (* constant *)
   | Test of testop                    (* numeric test *)
   | Compare of relop                  (* numeric comparison *)

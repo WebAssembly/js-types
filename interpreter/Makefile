@@ -19,7 +19,7 @@ WINMAKE =	winmake.bat
 
 DIRS =		util syntax binary text valid runtime exec script host main
 LIBS =		bigarray
-FLAGS = 	-cflags '-w +a-4-27-42-44-45 -warn-error +a'
+FLAGS = 	-cflags '-w +a-4-27-42-44-45 -warn-error +a-3'
 OCB =		ocamlbuild $(FLAGS) $(DIRS:%=-I %) $(LIBS:%=-libs %)
 JS =		# set to JS shell command to run JS tests
 
@@ -29,13 +29,14 @@ JS =		# set to JS shell command to run JS tests
 .PHONY:		default opt unopt libopt libunopt jslib all land zip
 
 default:	opt
+debug:		unopt
 opt:		$(OPT)
 unopt:		$(UNOPT)
 libopt:		_build/$(LIB).cmx
 libunopt:	_build/$(LIB).cmo
 jslib:		$(JSLIB)
 all:		unopt opt libunopt libopt test
-land:		all $(WINMAKE)
+land:		$(WINMAKE) all
 zip: 		$(ZIP)
 
 
@@ -48,16 +49,17 @@ comma =		,
 .INTERMEDIATE:	_tags
 _tags:
 		echo >$@ "true: bin_annot"
+		echo >>$@ "true: debug"
 		echo >>$@ "<{$(subst $(space),$(comma),$(DIRS))}/*.cmx>: for-pack($(PACK))"
 
-$(UNOPT):	main.d.byte
+$(UNOPT):	main.byte
 		mv $< $@
 
 $(OPT):		main.native
 		mv $< $@
 
-.PHONY:		main.d.byte main.native
-main.d.byte:	_tags
+.PHONY:		main.byte main.native
+main.byte:	_tags
 		$(OCB) -quiet $@
 
 main.native:	_tags
@@ -100,11 +102,11 @@ $(WINMAKE):	clean
 		echo rem Auto-generated from Makefile! >$@
 		echo set NAME=$(NAME) >>$@
 		echo if \'%1\' neq \'\' set NAME=%1 >>$@
-		$(OCB) main.d.byte \
+		$(OCB) main.byte \
 		| grep -v ocamldep \
 		| grep -v mkdir \
 		| sed s:`which ocaml`:ocaml:g \
-		| sed s:host/main.d.byte:%NAME%.exe: \
+		| sed s:main/main.d.byte:%NAME%.exe: \
 		>>$@
 
 
@@ -124,7 +126,7 @@ debugtest/%:	$(UNOPT)
 
 run/%:		$(OPT)
 		./$(OPT) $(@:run/%=../test/core/%.wast)
-debug/%:		$(UNOPT)
+debug/%:	$(UNOPT)
 		./$(UNOPT) $(@:debug/%=../test/core/%.wast)
 
 
@@ -138,6 +140,7 @@ $(ZIP):		$(WINMAKE)
 clean:
 		rm -rf _build/jslib $(LIB).mlpack _tags
 		$(OCB) -clean
+
 
 # Opam support
 

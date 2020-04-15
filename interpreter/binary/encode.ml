@@ -60,6 +60,7 @@ let encode m =
     let vu32 i = vu64 Int64.(logand (of_int32 i) 0xffffffffL)
     let vs7 i = vs64 (Int64.of_int i)
     let vs32 i = vs64 (Int64.of_int32 i)
+    let vs33 i = vs64 (I64_convert.extend_i32_s i)
     let f32 x = u32 (F32.to_bits x)
     let f64 x = u64 (F64.to_bits x)
 
@@ -97,17 +98,11 @@ let encode m =
       | F64Type -> vs7 (-0x04)
 
     let elem_type = function
-      | AnyFuncType -> vs7 (-0x10)
+      | FuncRefType -> vs7 (-0x10)
 
-    let stack_type = function
-      | [] -> vs7 (-0x40)
-      | [t] -> value_type t
-      | _ ->
-        Code.error Source.no_region
-          "cannot encode stack type with arity > 1 (yet)"
-
+    let stack_type = vec value_type
     let func_type = function
-      | FuncType (ins, out) -> vs7 (-0x20); vec value_type ins; vec value_type out
+      | FuncType (ins, out) -> vs7 (-0x20); stack_type ins; stack_type out
 
     let limits vu {min; max} =
       bool (max <> None); vu min; opt vu max
@@ -130,7 +125,6 @@ let encode m =
     open Source
     open Ast
     open Values
-    open Memory
 
     let op n = u8 n
     let end_ () = op 0x0b
@@ -139,15 +133,20 @@ let encode m =
 
     let var x = vu32 x.it
 
+    let block_type = function
+      | VarBlockType x -> vs33 x.it
+      | ValBlockType None -> vs7 (-0x40)
+      | ValBlockType (Some t) -> value_type t
+
     let rec instr e =
       match e.it with
       | Unreachable -> op 0x00
       | Nop -> op 0x01
 
-      | Block (ts, es) -> op 0x02; stack_type ts; list instr es; end_ ()
-      | Loop (ts, es) -> op 0x03; stack_type ts; list instr es; end_ ()
-      | If (ts, es1, es2) ->
-        op 0x04; stack_type ts; list instr es1;
+      | Block (bt, es) -> op 0x02; block_type bt; list instr es; end_ ()
+      | Loop (bt, es) -> op 0x03; block_type bt; list instr es; end_ ()
+      | If (bt, es1, es2) ->
+        op 0x04; block_type bt; list instr es1;
         if es2 <> [] then op 0x05;
         list instr es2; end_ ()
 
@@ -161,37 +160,37 @@ let encode m =
       | Drop -> op 0x1a
       | Select -> op 0x1b
 
-      | GetLocal x -> op 0x20; var x
-      | SetLocal x -> op 0x21; var x
-      | TeeLocal x -> op 0x22; var x
-      | GetGlobal x -> op 0x23; var x
-      | SetGlobal x -> op 0x24; var x
+      | LocalGet x -> op 0x20; var x
+      | LocalSet x -> op 0x21; var x
+      | LocalTee x -> op 0x22; var x
+      | GlobalGet x -> op 0x23; var x
+      | GlobalSet x -> op 0x24; var x
 
       | Load ({ty = I32Type; sz = None; _} as mo) -> op 0x28; memop mo
       | Load ({ty = I64Type; sz = None; _} as mo) -> op 0x29; memop mo
       | Load ({ty = F32Type; sz = None; _} as mo) -> op 0x2a; memop mo
       | Load ({ty = F64Type; sz = None; _} as mo) -> op 0x2b; memop mo
-      | Load ({ty = I32Type; sz = Some (Mem8, SX); _} as mo) ->
+      | Load ({ty = I32Type; sz = Some (Pack8, SX); _} as mo) ->
         op 0x2c; memop mo
-      | Load ({ty = I32Type; sz = Some (Mem8, ZX); _} as mo) ->
+      | Load ({ty = I32Type; sz = Some (Pack8, ZX); _} as mo) ->
         op 0x2d; memop mo
-      | Load ({ty = I32Type; sz = Some (Mem16, SX); _} as mo) ->
+      | Load ({ty = I32Type; sz = Some (Pack16, SX); _} as mo) ->
         op 0x2e; memop mo
-      | Load ({ty = I32Type; sz = Some (Mem16, ZX); _} as mo) ->
+      | Load ({ty = I32Type; sz = Some (Pack16, ZX); _} as mo) ->
         op 0x2f; memop mo
-      | Load {ty = I32Type; sz = Some (Mem32, _); _} ->
+      | Load {ty = I32Type; sz = Some (Pack32, _); _} ->
         assert false
-      | Load ({ty = I64Type; sz = Some (Mem8, SX); _} as mo) ->
+      | Load ({ty = I64Type; sz = Some (Pack8, SX); _} as mo) ->
         op 0x30; memop mo
-      | Load ({ty = I64Type; sz = Some (Mem8, ZX); _} as mo) ->
+      | Load ({ty = I64Type; sz = Some (Pack8, ZX); _} as mo) ->
         op 0x31; memop mo
-      | Load ({ty = I64Type; sz = Some (Mem16, SX); _} as mo) ->
+      | Load ({ty = I64Type; sz = Some (Pack16, SX); _} as mo) ->
         op 0x32; memop mo
-      | Load ({ty = I64Type; sz = Some (Mem16, ZX); _} as mo) ->
+      | Load ({ty = I64Type; sz = Some (Pack16, ZX); _} as mo) ->
         op 0x33; memop mo
-      | Load ({ty = I64Type; sz = Some (Mem32, SX); _} as mo) ->
+      | Load ({ty = I64Type; sz = Some (Pack32, SX); _} as mo) ->
         op 0x34; memop mo
-      | Load ({ty = I64Type; sz = Some (Mem32, ZX); _} as mo) ->
+      | Load ({ty = I64Type; sz = Some (Pack32, ZX); _} as mo) ->
         op 0x35; memop mo
       | Load {ty = F32Type | F64Type; sz = Some _; _} ->
         assert false
@@ -200,16 +199,16 @@ let encode m =
       | Store ({ty = I64Type; sz = None; _} as mo) -> op 0x37; memop mo
       | Store ({ty = F32Type; sz = None; _} as mo) -> op 0x38; memop mo
       | Store ({ty = F64Type; sz = None; _} as mo) -> op 0x39; memop mo
-      | Store ({ty = I32Type; sz = Some Mem8; _} as mo) -> op 0x3a; memop mo
-      | Store ({ty = I32Type; sz = Some Mem16; _} as mo) -> op 0x3b; memop mo
-      | Store {ty = I32Type; sz = Some Mem32; _} -> assert false
-      | Store ({ty = I64Type; sz = Some Mem8; _} as mo) -> op 0x3c; memop mo
-      | Store ({ty = I64Type; sz = Some Mem16; _} as mo) -> op 0x3d; memop mo
-      | Store ({ty = I64Type; sz = Some Mem32; _} as mo) -> op 0x3e; memop mo
+      | Store ({ty = I32Type; sz = Some Pack8; _} as mo) -> op 0x3a; memop mo
+      | Store ({ty = I32Type; sz = Some Pack16; _} as mo) -> op 0x3b; memop mo
+      | Store {ty = I32Type; sz = Some Pack32; _} -> assert false
+      | Store ({ty = I64Type; sz = Some Pack8; _} as mo) -> op 0x3c; memop mo
+      | Store ({ty = I64Type; sz = Some Pack16; _} as mo) -> op 0x3d; memop mo
+      | Store ({ty = I64Type; sz = Some Pack32; _} as mo) -> op 0x3e; memop mo
       | Store {ty = F32Type | F64Type; sz = Some _; _} -> assert false
 
-      | CurrentMemory -> op 0x3f; u8 0x00
-      | GrowMemory -> op 0x40; u8 0x00
+      | MemorySize -> op 0x3f; u8 0x00
+      | MemoryGrow -> op 0x40; u8 0x00
 
       | Const {it = I32 c; _} -> op 0x41; vs32 c
       | Const {it = I64 c; _} -> op 0x42; vs64 c
@@ -260,10 +259,16 @@ let encode m =
       | Unary (I32 I32Op.Clz) -> op 0x67
       | Unary (I32 I32Op.Ctz) -> op 0x68
       | Unary (I32 I32Op.Popcnt) -> op 0x69
+      | Unary (I32 (I32Op.ExtendS Pack8)) -> op 0xc0
+      | Unary (I32 (I32Op.ExtendS Pack16)) -> op 0xc1
+      | Unary (I32 (I32Op.ExtendS Pack32)) -> assert false
 
       | Unary (I64 I64Op.Clz) -> op 0x79
       | Unary (I64 I64Op.Ctz) -> op 0x7a
       | Unary (I64 I64Op.Popcnt) -> op 0x7b
+      | Unary (I64 (I64Op.ExtendS Pack8)) -> op 0xc2
+      | Unary (I64 (I64Op.ExtendS Pack16)) -> op 0xc3
+      | Unary (I64 (I64Op.ExtendS Pack32)) -> op 0xc4
 
       | Unary (F32 F32Op.Abs) -> op 0x8b
       | Unary (F32 F32Op.Neg) -> op 0x8c
@@ -336,6 +341,10 @@ let encode m =
       | Convert (I32 I32Op.TruncUF32) -> op 0xa9
       | Convert (I32 I32Op.TruncSF64) -> op 0xaa
       | Convert (I32 I32Op.TruncUF64) -> op 0xab
+      | Convert (I32 I32Op.TruncSSatF32) -> op 0xfc; op 0x00
+      | Convert (I32 I32Op.TruncUSatF32) -> op 0xfc; op 0x01
+      | Convert (I32 I32Op.TruncSSatF64) -> op 0xfc; op 0x02
+      | Convert (I32 I32Op.TruncUSatF64) -> op 0xfc; op 0x03
       | Convert (I32 I32Op.ReinterpretFloat) -> op 0xbc
 
       | Convert (I64 I64Op.ExtendSI32) -> op 0xac
@@ -345,6 +354,10 @@ let encode m =
       | Convert (I64 I64Op.TruncUF32) -> op 0xaf
       | Convert (I64 I64Op.TruncSF64) -> op 0xb0
       | Convert (I64 I64Op.TruncUF64) -> op 0xb1
+      | Convert (I64 I64Op.TruncSSatF32) -> op 0xfc; op 0x04
+      | Convert (I64 I64Op.TruncUSatF32) -> op 0xfc; op 0x05
+      | Convert (I64 I64Op.TruncSSatF64) -> op 0xfc; op 0x06
+      | Convert (I64 I64Op.TruncUSatF64) -> op 0xfc; op 0x07
       | Convert (I64 I64Op.ReinterpretFloat) -> op 0xbd
 
       | Convert (F32 F32Op.ConvertSI32) -> op 0xb2

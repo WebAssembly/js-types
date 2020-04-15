@@ -13,11 +13,13 @@ Typing of Static Constructs
 ===============================================  ===============================================================================
 Construct                                        Judgement
 ===============================================  ===============================================================================
-:ref:`Limits <valid-limits>`                     :math:`\vdashlimits \limits \ok`
+:ref:`Limits <valid-limits>`                     :math:`\vdashlimits \limits : k`
 :ref:`Function type <valid-functype>`            :math:`\vdashfunctype \functype \ok`
+:ref:`Block type <valid-blocktype>`              :math:`\vdashblocktype \blocktype \ok`
 :ref:`Table type <valid-tabletype>`              :math:`\vdashtabletype \tabletype \ok`
 :ref:`Memory type <valid-memtype>`               :math:`\vdashmemtype \memtype \ok`
 :ref:`Global type <valid-globaltype>`            :math:`\vdashglobaltype \globaltype \ok`
+:ref:`External type <valid-externtype>`          :math:`\vdashexterntype \externtype \ok`
 :ref:`Instruction <valid-instr>`                 :math:`S;C \vdashinstr \instr : \functype`
 :ref:`Instruction sequence <valid-instr-seq>`    :math:`S;C \vdashinstrseq \instr^\ast : \functype`
 :ref:`Expression <valid-expr>`                   :math:`C \vdashexpr \expr : \resulttype`
@@ -102,6 +104,6 @@ Execution
 ===============================================  ===============================================================================
 Construct                                        Judgement
 ===============================================  ===============================================================================
-:ref:`Instruction <exec-instr>`                  :math:`S;F;\instr \stepto S';F';{\instr'}^\ast`
-:ref:`Expression <exec-expr>`                    :math:`S;F;\expr \stepto^\ast S';F';\val^\ast`
+:ref:`Instruction <exec-instr>`                  :math:`S;F;\instr^\ast \stepto S';F';{\instr'}^\ast`
+:ref:`Expression <exec-expr>`                    :math:`S;F;\expr \stepto  S';F';\expr'`
 ===============================================  ===============================================================================

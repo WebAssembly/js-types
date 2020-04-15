@@ -8,9 +8,6 @@ type size = int32  (* number of pages *)
 type address = int64
 type offset = int32
 
-type mem_size = Mem8 | Mem16 | Mem32
-type extension = SX | ZX
-
 exception Type
 exception Bounds
 exception SizeOverflow
@@ -18,7 +15,6 @@ exception SizeLimit
 exception OutOfMemory
 
 val page_size : int64
-val mem_size : mem_size -> int
 
 val alloc : memory_type -> memory (* raises SizeOverflow, OutOfMemory *)
 val type_of : memory -> memory_type
@@ -37,8 +33,8 @@ val load_value :
 val store_value :
   memory -> address -> offset -> value -> unit (* raises Bounds *)
 val load_packed :
-  mem_size -> extension -> memory -> address -> offset -> value_type -> value
+  pack_size -> extension -> memory -> address -> offset -> value_type -> value
     (* raises Type, Bounds *)
 val store_packed :
-  mem_size -> memory -> address -> offset -> value -> unit
+  pack_size -> memory -> address -> offset -> value -> unit
     (* raises Type, Bounds *)

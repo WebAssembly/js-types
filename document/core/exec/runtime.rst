@@ -329,7 +329,6 @@ It filters out entries of a specific kind in an order-preserving fashion:
 * :math:`\evglobals(\externval^\ast) = [\globaladdr ~|~ (\EVGLOBAL~\globaladdr) \in \externval^\ast]`
 
 
-
 .. index:: ! stack, ! frame, ! label, instruction, store, activation, function, call, local, module instance
    pair: abstract syntax; frame
    pair: abstract syntax; label
@@ -355,10 +354,9 @@ These entries can occur on the stack in any order during the execution of a prog
 Stack entries are described by abstract syntax as follows.
 
 .. note::
-   It is possible to model the WebAssebmly semantics using separate stacks for operands, control constructs, and calls.
+   It is possible to model the WebAssembly semantics using separate stacks for operands, control constructs, and calls.
    However, because the stacks are interdependent, additional book keeping about associated stack heights would be required.
    For the purpose of this specification, an interleaved representation is simpler.
-
 
 Values
 ......
@@ -382,7 +380,7 @@ Intuitively, :math:`\instr^\ast` is the *continuation* to execute when the branc
    For example, a loop label has the form
 
    .. math::
-      \LABEL_n\{\LOOP~[t^?]~\dots~\END\}
+      \LABEL_n\{\LOOP~\dots~\END\}
 
    When performing a branch to this label, this executes the loop, effectively restarting it from the beginning.
    Conversely, a simple block label has the form
@@ -392,10 +390,10 @@ Intuitively, :math:`\instr^\ast` is the *continuation* to execute when the branc
 
    When branching, the empty continuation ends the targeted block, such that execution can proceed with consecutive instructions.
 
-Frames
-......
+Activations and Frames
+......................
 
-Activation frames carry the return arity of the respective function,
+Activation frames carry the return arity :math:`n` of the respective function,
 hold the values of its :ref:`locals <syntax-local>` (including arguments) in the order corresponding to their static :ref:`local indices <syntax-localidx>`,
 and a reference to the function's own :ref:`module instance <syntax-moduleinst>`:
 
@@ -417,9 +415,13 @@ Conventions
 
 * The meta variable :math:`F` ranges over frames where clear from context.
 
-.. note::
-   In the current version of WebAssembly, the arities of labels and frames cannot be larger than :math:`1`.
-   This may be generalized in future versions.
+* The following auxiliary definition takes a :ref:`block type <syntax-blocktype>` and looks up the :ref:`function type <syntax-functype>` that it denotes in the current frame:
+
+.. math::
+   \begin{array}{lll}
+   \expand_F(\typeidx) &=& F.\AMODULE.\MITYPES[\typeidx] \\
+   \expand_F([\valtype^?]) &=& [] \to [\valtype^?] \\
+   \end{array}
 
 
 .. index:: ! administrative instructions, function, function instance, function address, label, frame, instruction, trap, call, memory, memory instance, table, table instance, element, data, segment
@@ -477,7 +479,7 @@ That way, the end of the inner instruction sequence is known when part of an out
    When |END| is reached, i.e., the inner instruction sequence has been reduced to the empty sequence -- or rather, a sequence of :math:`n` |CONST| instructions representing the resulting values -- then the |LABEL| instruction is eliminated courtesy of its own :ref:`reduction rule <exec-label>`:
 
    .. math::
-      \LABEL_n\{\instr^n\}~\val^\ast~\END \quad\stepto\quad \val^n
+      \LABEL_m\{\instr^\ast\}~\val^n~\END \quad\stepto\quad \val^n
 
    This can be interpreted as removing the label from the stack and only leaving the locally accumulated operand values.
 
@@ -500,7 +502,7 @@ That way, the end of the inner instruction sequence is known when part of an out
 Block Contexts
 ..............
 
-In order to specify the reduction of :ref:`branches <syntax-instr-control>`, the following syntax of *block contexts* is defined, indexed by the count :math:`k` of labels surrounding the hole:
+In order to specify the reduction of :ref:`branches <syntax-instr-control>`, the following syntax of *block contexts* is defined, indexed by the count :math:`k` of labels surrounding a *hole* :math:`[\_]` that marks the place where the next step of computation is taking place:
 
 .. math::
    \begin{array}{llll}
@@ -534,7 +536,7 @@ Configurations
 A *configuration* consists of the current :ref:`store <syntax-store>` and an executing *thread*.
 
 A thread is a computation over :ref:`instructions <syntax-instr>`
-that operates relative to a current :ref:`frame <syntax-frame>` referring to the home :ref:`module instance <syntax-moduleinst>` that the computation runs in.
+that operates relative to a current :ref:`frame <syntax-frame>` referring to the :ref:`module instance <syntax-moduleinst>` in which the computation runs, i.e., where the current function originates from.
 
 .. math::
    \begin{array}{llcl}
@@ -566,22 +568,14 @@ Finally, the following definition of *evaluation context* and associated structu
    \end{array}
 
 .. math::
-   \begin{array}{l}
-   \begin{array}{lcl@{\qquad}l}
-   S; F; E[\instr^\ast] &\stepto& S'; F'; E[{\instr'}^\ast]
-   \end{array}
-   \\ \qquad
-     (\iff S; F; \instr^\ast \stepto S'; F'; {\instr'}^\ast) \\
-   \begin{array}{lcl@{\qquad}l}
-   S; F; \FRAME_n\{F'\}~\instr^\ast~\END &\stepto& S'; F; \FRAME_n\{F''\}~\instr'^\ast~\END
-   \end{array}
-   \\ \qquad
-     (\iff S; F'; \instr^\ast \stepto S'; F''; {\instr'}^\ast) \\[1ex]
-   \begin{array}{lcl@{\qquad}l}
+   \begin{array}{rcl}
+   S; F; E[\instr^\ast] &\stepto& S'; F'; E[{\instr'}^\ast] \\
+     && (\iff S; F; \instr^\ast \stepto S'; F'; {\instr'}^\ast) \\
+   S; F; \FRAME_n\{F'\}~\instr^\ast~\END &\stepto& S'; F; \FRAME_n\{F''\}~\instr'^\ast~\END \\
+     && (\iff S; F'; \instr^\ast \stepto S'; F''; {\instr'}^\ast) \\[1ex]
    S; F; E[\TRAP] &\stepto& S; F; \TRAP
-     &(\iff E \neq [\_]) \\
-   S; F; \FRAME_n\{F'\}~\TRAP~\END &\stepto& S; F; \TRAP
-   \end{array} \\
+     \qquad (\iff E \neq [\_]) \\
+   S; F; \FRAME_n\{F'\}~\TRAP~\END &\stepto& S; F; \TRAP \\
    \end{array}
 
 Reduction terminates when a thread's instruction sequence has been reduced to a :ref:`result <syntax-result>`,

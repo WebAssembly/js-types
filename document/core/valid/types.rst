@@ -2,7 +2,8 @@ Types
 -----
 
 Most :ref:`types <syntax-type>` are universally valid.
-However, restrictions apply to :ref:`function types <syntax-functype>` as well as the :ref:`limits <syntax-limits>` of :ref:`table types <syntax-tabletype>` and :ref:`memory types <syntax-memtype>`, which must be checked during validation.
+However, restrictions apply to :ref:`limits <syntax-limits>`, which must be checked during validation.
+Moreover, :ref:`block types <syntax-blocktype>` are converted to plain :ref:`function types <syntax-functype>` for ease of processing.
 
 
 .. index:: limits
@@ -13,20 +14,67 @@ However, restrictions apply to :ref:`function types <syntax-functype>` as well a
 Limits
 ~~~~~~
 
-:ref:`Limits <syntax-limits>` must have meaningful bounds.
+:ref:`Limits <syntax-limits>` must have meaningful bounds that are within a given range.
 
 :math:`\{ \LMIN~n, \LMAX~m^? \}`
 ................................
 
-* If the maximum :math:`m^?` is not empty, then its value must not be smaller than :math:`n`.
+* The value of :math:`n` must not be larger than :math:`k`.
 
-* Then the limit is valid.
+* If the maximum :math:`m^?` is not empty, then:
+
+  * Its value must not be larger than :math:`k`.
+
+  * Its value must not be smaller than :math:`n`.
+
+* Then the limit is valid within range :math:`k`.
 
 .. math::
    \frac{
+     n \leq k
+     \qquad
+     (m \leq k)^?
+     \qquad
      (n \leq m)^?
    }{
-     \vdashlimits \{ \LMIN~n, \LMAX~m^? \} \ok
+     \vdashlimits \{ \LMIN~n, \LMAX~m^? \} : k
+   }
+
+
+.. index:: block type
+   pair: validation; block type
+   single: abstract syntax; block type
+.. _valid-blocktype:
+
+Block Types
+~~~~~~~~~~~
+
+:ref:`Block types <syntax-blocktype>` may be expressed in one of two forms, both of which are converted to plain :ref:`function types <syntax-functype>` by the following rules.
+
+:math:`\typeidx`
+................
+
+* The type :math:`C.\CTYPES[\typeidx]` must be defined in the context.
+
+* Then the block type is valid as :ref:`function type <syntax-functype>` :math:`C.\CTYPES[\typeidx]`.
+
+.. math::
+   \frac{
+     C.\CTYPES[\typeidx] = \functype
+   }{
+     C \vdashblocktype \typeidx : \functype
+   }
+
+
+:math:`[\valtype^?]`
+....................
+
+* The block type is valid as :ref:`function type <syntax-functype>` :math:`[] \to [\valtype^?]`.
+
+.. math::
+   \frac{
+   }{
+     C \vdashblocktype [\valtype^?] : [] \to [\valtype^?]
    }
 
 
@@ -38,23 +86,18 @@ Limits
 Function Types
 ~~~~~~~~~~~~~~
 
-:ref:`Function types <syntax-functype>` may not specify more than one result.
+:ref:`Function types <syntax-functype>` are always valid.
 
 :math:`[t_1^n] \to [t_2^m]`
 ...........................
 
-* The arity :math:`m` must not be larger than :math:`1`.
-
-* Then the function type is valid.
+* The function type is valid.
 
 .. math::
    \frac{
    }{
-     \vdashfunctype [t_1^\ast] \to [t_2^?] \ok
+     \vdashfunctype [t_1^\ast] \to [t_2^\ast] \ok
    }
-
-.. note::
-   This restriction may be removed in future versions of WebAssembly.
 
 
 .. index:: table type, element type, limits
@@ -68,13 +111,13 @@ Table Types
 :math:`\limits~\elemtype`
 .........................
 
-* The limits :math:`\limits` must be :ref:`valid <valid-limits>`.
+* The limits :math:`\limits` must be :ref:`valid <valid-limits>` within range :math:`2^{32}`.
 
 * Then the table type is valid.
 
 .. math::
    \frac{
-     \vdashlimits \limits \ok
+     \vdashlimits \limits : 2^{32}
    }{
      \vdashtabletype \limits~\elemtype \ok
    }
@@ -91,13 +134,13 @@ Memory Types
 :math:`\limits`
 ...............
 
-* The limits :math:`\limits` must be :ref:`valid <valid-limits>`.
+* The limits :math:`\limits` must be :ref:`valid <valid-limits>` within range :math:`2^{16}`.
 
 * Then the memory type is valid.
 
 .. math::
    \frac{
-     \vdashlimits \limits \ok
+     \vdashlimits \limits : 2^{16}
    }{
      \vdashmemtype \limits \ok
    }
@@ -120,4 +163,69 @@ Global Types
    \frac{
    }{
      \vdashglobaltype \mut~\valtype \ok
+   }
+
+
+.. index:: external type, function type, table type, memory type, global type
+   pair: validation; external type
+   single: abstract syntax; external type
+.. _valid-externtype:
+
+External Types
+~~~~~~~~~~~~~~
+
+:math:`\ETFUNC~\functype`
+.........................
+
+* The :ref:`function type <syntax-functype>` :math:`\functype` must be :ref:`valid <valid-functype>`.
+
+* Then the external type is valid.
+
+.. math::
+   \frac{
+     \vdashfunctype \functype \ok
+   }{
+     \vdashexterntype \ETFUNC~\functype \ok
+   }
+
+:math:`\ETTABLE~\tabletype`
+...........................
+
+* The :ref:`table type <syntax-tabletype>` :math:`\tabletype` must be :ref:`valid <valid-tabletype>`.
+
+* Then the external type is valid.
+
+.. math::
+   \frac{
+     \vdashtabletype \tabletype \ok
+   }{
+     \vdashexterntype \ETTABLE~\tabletype \ok
+   }
+
+:math:`\ETMEM~\memtype`
+.......................
+
+* The :ref:`memory type <syntax-memtype>` :math:`\memtype` must be :ref:`valid <valid-memtype>`.
+
+* Then the external type is valid.
+
+.. math::
+   \frac{
+     \vdashmemtype \memtype \ok
+   }{
+     \vdashexterntype \ETMEM~\memtype \ok
+   }
+
+:math:`\ETGLOBAL~\globaltype`
+.............................
+
+* The :ref:`global type <syntax-globaltype>` :math:`\globaltype` must be :ref:`valid <valid-globaltype>`.
+
+* Then the external type is valid.
+
+.. math::
+   \frac{
+     \vdashglobaltype \globaltype \ok
+   }{
+     \vdashexterntype \ETGLOBAL~\globaltype \ok
    }
