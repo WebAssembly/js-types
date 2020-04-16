@@ -185,6 +185,7 @@ spec:ecmascript; type:exception; for:ECMAScript; text:TypeError
 spec:ecmascript; type:exception; for:ECMAScript; text:RangeError
 spec:ecmascript; type:interface; for:ECMAScript; text:ArrayBuffer
 spec:webidl; type:dfn; text:resolve
+spec:infra; type:dfn; for:list; text:append
 </pre>
 
 <style>
@@ -491,23 +492,44 @@ Note: A follow-on streaming API is documented in the <a href="https://webassembl
 <h3 id="modules">Modules</h3>
 
 <pre class="idl">
-enum ImportExportKind {
+enum ExternKind {
   "function",
   "table",
   "memory",
   "global"
 };
 
-dictionary ModuleExportDescriptor {
-  required USVString name;
-  required ImportExportKind kind;
-  // Note: Other fields such as signature may be added in the future.
+// Note: JavaScript objects are not converted into this dictionary type;
+//       it is only used to create JavaScript objects from internal data.
+dictionary AnyExternType {
+  // If kind = "function":
+  sequence&lt;ValueType> parameters;
+  sequence&lt;ValueType> results;
+
+  // If kind = "table" or "memory":
+  [EnforceRange] unsigned long minimum;
+  [EnforceRange] unsigned long maximum;
+
+  // If kind = "table":
+  TableKind element;
+
+  // If kind = "global":
+  ValueType value;
+  boolean mutable;
 };
 
-dictionary ModuleImportDescriptor {
+dictionary ExternType {
+  required ExternKind kind;
+  AnyExternType type;
+};
+
+dictionary ModuleExportDescriptor : ExternType {
+  required USVString name;
+};
+
+dictionary ModuleImportDescriptor : ExternType {
   required USVString module;
   required USVString name;
-  required ImportExportKind kind;
 };
 
 [LegacyNamespace=WebAssembly, Exposed=(Window,Worker,Worklet)]
@@ -520,11 +542,35 @@ interface Module {
 </pre>
 
 <div algorithm>
-  The <dfn>string value of the extern type</dfn> |type| is
-    * "function" if |type| is of the form [=𝖿𝗎𝗇𝖼=] functype
-    * "table" if |type| is of the form [=𝗍𝖺𝖻𝗅𝖾=] tabletype
-    * "memory" if |type| is of the form [=𝗆𝖾𝗆=] memtype
-    * "global" if |type| is of the form [=𝗀𝗅𝗈𝖻𝖺𝗅=] globaltype
+
+The <dfn>IDL representation of the extern type</dfn> |type| is given by the following steps:
+
+1. If |type| is of the form [=𝖿𝗎𝗇𝖼=] [|parameters|] → [|results|],
+    1. Let |kind| be "{{ExternKind/function}}".
+    1. Let |idlParameters| be «».
+    1. [=list/iterate|For each=] |type| of |parameters|,
+        1. [=list/Append=] [$FromValueType$](|type|) to |idlParameters|.
+    1. Let |idlResults| be «».
+    1. [=list/iterate|For each=] |type| of |results|,
+        1. [=list/Append=] [$FromValueType$](|type|) to |idlResults|.
+    1. Let |type| be «[ "{{AnyExternType/parameters}}" → |idlParameters|, "{{AnyExternType/results}}" → |idlResults| ]».
+1. If |type| is of the form [=𝗍𝖺𝖻𝗅𝖾=] { min |minimum|, max |maximum| }, |elementType|,
+    1. Let |kind| be "{{ExternKind/table}}".
+    1. Assert: |elementType| is [=table type|𝖺𝗇𝗒𝖿𝗎𝗇𝖼=].
+    1. Let |type| be «[ "{{AnyExternType/minimum}}" → |minimum|, "{{AnyExternType/element}}" → "{{TableKind/anyfunc}}" ]».
+    1. If |maximum| is not empty,
+        1. Set |type|["{{AnyExternType/maximum}}"] to |maximum|.
+1. If |type| is of the form [=𝗆𝖾𝗆=] { min |minimum|, max |maximum| },
+    1. Let |kind| be "{{ExternKind/memory}}".
+    1. Let |type| be «[ "{{AnyExternType/minimum}}" → |minimum| ]».
+    1. If |maximum| is not empty,
+        1. Set |type|["{{AnyExternType/maximum}}"] to |maximum|.
+1. If |type| is of the form [=𝗀𝗅𝗈𝖻𝖺𝗅=] |mut| |valuetype|,
+    1. Let |kind| be "{{ExternKind/global}}".
+    1. Let |value| be [$FromValueType$](|valuetype|).
+    1. Let |type| be «[ "{{AnyExternType/mutable}}" → |mut|, "{{AnyExternType/value}}" → |value| ]».
+1. Return (|kind|, |type|).
+
 </div>
 
 <div algorithm>
@@ -532,9 +578,9 @@ interface Module {
     1. Let |module| be |moduleObject|.\[[Module]].
     1. Let |exports| be an empty [=list=].
     1. [=list/iterate|For each=] (|name|, |type|) of [=module_exports=](|module|),
-        1. Let |kind| be the [=string value of the extern type=] |type|.
-        1. Let |obj| be a new {{ModuleExportDescriptor}} dictionary with {{ModuleExportDescriptor/name}} |name| and {{ModuleExportDescriptor/kind}} |kind|.
-        1. [=list/Append=] |obj| to the end of |exports|.
+        1. Let (|kind|, |type|) be the [=IDL representation of the extern type=] |type|.
+        1. Let |obj| be «[ "{{ModuleExportDescriptor/name}}" → |name|, "{{ExternType/kind}}" → |kind|, "{{ExternType/type}}" → |type| ]».
+        1. [=list/Append=] |obj| to |exports|.
     1. Return |exports|.
 </div>
 
@@ -543,9 +589,14 @@ interface Module {
     1. Let |module| be |moduleObject|.\[[Module]].
     1. Let |imports| be an empty [=list=].
     1. [=list/iterate|For each=] (|moduleName|, |name|, |type|) of [=module_imports=](|module|),
-        1. Let |kind| be the [=string value of the extern type=] |type|.
-        1. Let |obj| be a new {{ModuleImportDescriptor}} dictionary with {{ModuleImportDescriptor/module}} |moduleName|, {{ModuleImportDescriptor/name}} |name| and {{ModuleImportDescriptor/kind}} |kind|.
-        1. [=list/Append=] |obj| to the end of |imports|.
+        1. Let (|kind|, |type|) be the [=IDL representation of the extern type=] |type|.
+        1. Let |obj| be «[
+                "{{ModuleImportDescriptor/module}}" → |moduleName|,
+                "{{ModuleImportDescriptor/name}}" → |name|,
+                "{{ExternType/kind}}" → |kind|,
+                "{{ExternType/type}}" → |type|
+            ]».
+        1. [=list/Append=] |obj| to |imports|.
     1. Return |imports|.
 </div>
 
@@ -596,16 +647,22 @@ interface Instance {
 <h3 id="memories">Memories</h3>
 
 <pre class="idl">
-dictionary MemoryDescriptor {
-  required [EnforceRange] unsigned long initial;
+dictionary MemoryType {
+  [EnforceRange] unsigned long minimum;
   [EnforceRange] unsigned long maximum;
+};
+
+dictionary InitialMemoryDescriptor : MemoryType {
+  [EnforceRange] unsigned long initial;
 };
 
 [LegacyNamespace=WebAssembly, Exposed=(Window,Worker,Worklet)]
 interface Memory {
-  constructor(MemoryDescriptor descriptor);
+  constructor(optional InitialMemoryDescriptor descriptor = {});
   unsigned long grow([EnforceRange] unsigned long delta);
   readonly attribute ArrayBuffer buffer;
+
+  static MemoryType type(Memory memory);
 };
 </pre>
 
@@ -650,8 +707,13 @@ which can be simultaneously referenced by multiple {{Instance}} objects. Each
 
 <div algorithm>
     The <dfn constructor for="Memory">Memory(|descriptor|)</dfn> constructor, when invoked, performs the following steps:
-    1. Let |initial| be |descriptor|["initial"].
-    1. If |descriptor|["maximum"] is [=present=], let |maximum| be |descriptor|["maximum"]; otherwise, let |maximum| be empty.
+    1. If |descriptor|["{{InitialMemoryDescriptor/initial}}"] [=map/exists=] and |descriptor|["{{MemoryType/minimum}}"] does not [=map/exist=],
+        1. Let |initial| be |descriptor|["{{InitialMemoryDescriptor/initial}}"].
+    1. Otherwise, if |descriptor|["{{MemoryType/minimum}}"] [=map/exists=] and |descriptor|["{{InitialMemoryDescriptor/initial}}"] does not [=map/exist=],
+        1. Let |initial| be |descriptor|["{{MemoryType/minimum}}"].
+    1. Otherwise,
+        1. Throw a {{TypeError}} exception.
+    1. If |descriptor|["maximum"] [=map/exists=], let |maximum| be |descriptor|["maximum"]; otherwise, let |maximum| be empty.
     1. If |maximum| is not empty and |maximum| &lt; |initial|, throw a {{RangeError}} exception.
     1. Let |memtype| be { min |initial|, max |maximum| }.
     1. Let |store| be the [=surrounding agent=]'s [=associated store=].
@@ -697,28 +759,49 @@ Immediately after a WebAssembly [=memory.grow=] instruction executes, perform th
     The getter of the <dfn attribute for="Memory">buffer</dfn> attribute of {{Memory}} returns **this**.\[[BufferObject]].
 </div>
 
+<div algorithm>
+
+The <dfn method for="Memory">type(|memory|)</dfn> method steps are:
+
+1. Let |store| be the [=surrounding agent=]'s [=associated store=].
+1. Let |memaddr| be |memory|.\[[Memory]].
+1. Let { min |minimum|, max |maximum| } be [=mem_type=](|store|, |memaddr|).
+1. Let |type| be «[ "{{MemoryType/minimum}}" → |minimum| ]».
+1. If |maximum| is not empty,
+    1. [=map/Set=] |type|["{{MemoryType/maximum}}"] to |maximum|.
+1. Return |type|.
+
+</div>
+
 <h3 id="tables">Tables</h3>
 
-<pre class="idl">
+<pre class="idl extract">
 enum TableKind {
   "anyfunc",
   // Note: More values may be added in future iterations,
   // e.g., typed function references, typed GC references
 };
 
-dictionary TableDescriptor {
+dictionary TableType {
   required TableKind element;
-  required [EnforceRange] unsigned long initial;
+  [EnforceRange] unsigned long minimum;
   [EnforceRange] unsigned long maximum;
+};
+
+dictionary InitialTableDescriptor : TableType {
+  [EnforceRange] unsigned long initial;
 };
 
 [LegacyNamespace=WebAssembly, Exposed=(Window,Worker,Worklet)]
 interface Table {
-  constructor(TableDescriptor descriptor);
+// https://github.com/plinss/widlparser/issues/62
+//  constructor(InitialTableDescriptor descriptor);
   unsigned long grow([EnforceRange] unsigned long delta);
   Function? get([EnforceRange] unsigned long index);
   void set([EnforceRange] unsigned long index, Function? value);
   readonly attribute unsigned long length;
+
+  static TableType type(Table table);
 };
 </pre>
 
@@ -746,8 +829,13 @@ Each {{Table}} object has a \[[Table]] internal slot, which is a [=table address
 
 <div algorithm>
     The <dfn constructor for="Table">Table(|descriptor|)</dfn> constructor, when invoked, performs the following steps:
-    1. Let |initial| be |descriptor|["initial"].
-    1. If |descriptor|["maximum"] is [=present=], let |maximum| be |descriptor|["maximum"]; otherwise, let |maximum| be empty.
+    1. If |descriptor|["{{InitialTableDescriptor/initial}}"] [=map/exists=] and |descriptor|["{{TableType/minimum}}"] does not [=map/exist=],
+        1. Let |initial| be |descriptor|["{{InitialTableDescriptor/initial}}"].
+    1. Otherwise, if |descriptor|["{{TableType/minimum}}"] [=map/exists=] and |descriptor|["{{InitialTableDescriptor/initial}}"] does not [=map/exist=],
+        1. Let |initial| be |descriptor|["{{TableType/minimum}}"].
+    1. Otherwise,
+        1. Throw a {{TypeError}} exception.
+    1. If |descriptor|["maximum"] [=map/exists=], let |maximum| be |descriptor|["maximum"]; otherwise, let |maximum| be empty.
     1. If |maximum| is not empty and |maximum| &lt; |initial|, throw a {{RangeError}} exception.
     1. Let |type| be the [=table type=] {[=table type|𝗆𝗂𝗇=] |initial|, [=table type|𝗆𝖺𝗑=] |maximum|} [=table type|𝖺𝗇𝗒𝖿𝗎𝗇𝖼=].
     1. Let |store| be the [=surrounding agent=]'s [=associated store=].
@@ -800,6 +888,21 @@ Each {{Table}} object has a \[[Table]] internal slot, which is a [=table address
     1. Set the [=surrounding agent=]'s [=associated store=] to |store|.
 </div>
 
+<div algorithm>
+
+The <dfn method for="Table">type(|table|)</dfn> method steps are:
+
+1. Let |store| be the [=surrounding agent=]'s [=associated store=].
+1. Let |tableaddr| be |table|.\[[Table]].
+1. Let ({ min |minimum|, max |maximum| }, |elementType|) be [=table_type=](|store|, |tableaddr|).
+1. Assert: |elementType| is [=table type|𝖺𝗇𝗒𝖿𝗎𝗇𝖼=].
+1. Let |type| be «[ "{{TableType/element}}" → "{{TableKind/anyfunc}}", "{{TableType/minimum}}" → |minimum| ]».
+1. If |maximum| is not empty,
+    1. [=map/Set=] |type|["{{TableType/maximum}}"] to |maximum|.
+1. Return |type|.
+
+</div>
+
 <h3 id="globals">Globals</h3>
 
 <pre class="idl">
@@ -814,16 +917,18 @@ enum ValueType {
 Note: this type may be extended with additional cases in future versions of WebAssembly.
 
 <pre class="idl">
-dictionary GlobalDescriptor {
+dictionary GlobalType {
   required ValueType value;
   boolean mutable = false;
 };
 
 [LegacyNamespace=WebAssembly, Exposed=(Window,Worker,Worklet)]
 interface Global {
-  constructor(GlobalDescriptor descriptor, optional any v);
+  constructor(GlobalType descriptor, optional any v);
   any valueOf();
   attribute any value;
+
+  static GlobalType type(Global global);
 };
 </pre>
 
@@ -859,6 +964,18 @@ which can be simultaneously referenced by multiple {{Instance}} objects. Each
     1. If |s| equals "i64", return [=𝗂𝟨𝟦=].
     1. If |s| equals "f32", return [=𝖿𝟥𝟤=].
     1. If |s| equals "f64", return [=𝖿𝟨𝟦=].
+</div>
+
+<div algorithm>
+
+The algorithm <dfn abstract-op>FromValueType</dfn>(|s|) performs the following steps:
+
+1. If |s| equals [=𝗂𝟥𝟤=], return "{{ValueType/i32}}".
+1. If |s| equals [=𝗂𝟨𝟦=], return "{{ValueType/i64}}".
+1. If |s| equals [=𝖿𝟥𝟤=], return "{{ValueType/f32}}".
+1. If |s| equals [=𝖿𝟨𝟦=], return "{{ValueType/f64}}".
+1. Assert: This step is not reached.
+
 </div>
 
 <div algorithm>
@@ -915,6 +1032,17 @@ which can be simultaneously referenced by multiple {{Instance}} objects. Each
 <div algorithm>
     The <dfn method for="Global">valueOf()</dfn> method, when invoked, performs the following steps:
     1. Return [=GetGlobalValue=](**this**).
+</div>
+
+<div algorithm>
+
+The <dfn method for="Global">type(|global|)</dfn> method steps are:
+
+1. Let |store| be the [=surrounding agent=]'s [=associated store=].
+1. Let |globaladdr| be |global|.\[[Global]].
+1. Let |mut| |valuetype| be [=global_type=](|store|, |globaladdr|).
+1. Return «[ "{{GlobalType/mutable}}" → |mut|, "{{GlobalType/value}}" → [$FromValueType$](|valuetype|) ]».
+
 </div>
 
 <h3 id="exported-function-exotic-objects">Exported Functions</h3>
