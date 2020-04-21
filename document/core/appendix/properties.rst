@@ -7,11 +7,11 @@ Soundness
 The :ref:`type system <type-system>` of WebAssembly is *sound*, implying both *type safety* and *memory safety* with respect to the WebAssembly semantics. For example:
 
 * All types declared and derived during validation are respected at run time;
-  e.g., every :ref:`local <syntax-local>` or :ref:`global <syntax-global>` variable will only contain type-correct values, every :ref:`instruction <syntax-instr>` will only be applied to operands of the expected type, and every :ref:`function <syntax-func>` :ref:`invocation <exec-invocation>` always evaluates to a result of the right type.
+  e.g., every :ref:`local <syntax-local>` or :ref:`global <syntax-global>` variable will only contain type-correct values, every :ref:`instruction <syntax-instr>` will only be applied to operands of the expected type, and every :ref:`function <syntax-func>` :ref:`invocation <exec-invocation>` always evaluates to a result of the right type (if it does not :ref:`trap <trap>` or diverge).
 
 * No memory location will be read or written except those explicitly defined by the program, i.e., as a :ref:`local <syntax-local>`, a :ref:`global <syntax-global>`, an element in a :ref:`table <syntax-table>`, or a location within a linear :ref:`memory <syntax-mem>`.
 
-* There is no undefined behaviour,
+* There is no undefined behavior,
   i.e., the :ref:`execution rules <exec>` cover all possible cases that can occur in a :ref:`valid <valid>` program, and the rules are mutually consistent.
 
 Soundness also is instrumental in ensuring additional properties, most notably, *encapsulation* of function and module scopes: no :ref:`locals <syntax-local>` can be accessed outside their own function and no :ref:`module <syntax-module>` components can be accessed outside their own module unless they are explicitly :ref:`exported <syntax-export>` or :ref:`imported <syntax-import>`.
@@ -161,11 +161,15 @@ Module instances are classified by *module contexts*, which are regular :ref:`co
 
 * Let :math:`[t_1^\ast] \to [t_2^\ast]` be the :ref:`function type <syntax-functype>` :math:`\functype`.
 
-* For every possible :ref:`valid <valid-store>` :ref:`store <syntax-store>` :math:`S_1` :ref:`extending <extend-store>` :math:`S` and every sequence :math:`\val^\ast` of :ref:`values <syntax-val>` whose :ref:`types <valid-val>` coincide with :math:`t_1^\ast`:
+* For every :ref:`valid <valid-store>` :ref:`store <syntax-store>` :math:`S_1` :ref:`extending <extend-store>` :math:`S` and every sequence :math:`\val^\ast` of :ref:`values <syntax-val>` whose :ref:`types <valid-val>` coincide with :math:`t_1^\ast`:
 
-  * There must exist a :ref:`valid <valid-store>` :ref:`store <syntax-store>` :math:`S_2` :ref:`extending <extend-store>` :math:`S_1` and a :ref:`result <syntax-result>` :math:`\result` whose :ref:`type <valid-result>` coincides with :math:`[t_2^\ast]` such that:
+  * :ref:`Executing <exec-invoke-host>` :math:`\X{hf}` in store :math:`S_1` with arguments :math:`\val^\ast` has a non-empty set of possible outcomes.
 
-    * :ref:`Executing <exec-invoke-host>` :math:`\X{hf}` in store :math:`S_1` with arguments :math:`\val^\ast` produces :math:`\result` and store :math:`S_2`.
+  * For every element :math:`R` of this set:
+
+    * Either :math:`R` must be :math:`\bot` (i.e., divergence).
+
+    * Or :math:`R` consists of a :ref:`valid <valid-store>` :ref:`store <syntax-store>` :math:`S_2` :ref:`extending <extend-store>` :math:`S_1` and a :ref:`result <syntax-result>` :math:`\result` whose :ref:`type <valid-result>` coincides with :math:`[t_2^\ast]`.
 
 * Then the function instance is valid with :ref:`function type <syntax-functype>` :math:`\functype`.
 
@@ -181,11 +185,14 @@ Module instances are classified by *module contexts*, which are regular :ref:`co
        {\vdashstoreextends S \extendsto S_1} \wedge
        {\vdashresult \val^\ast : [t_1^\ast]}
        \Longrightarrow {} \\ \qquad
-     \exists S_2, \result,~
+       \X{hf}(S_1; \val^\ast) \supset \emptyset \wedge {} \\ \qquad
+     \forall R \in \X{hf}(S_1; \val^\ast),~
+       R = \bot \vee {} \\ \qquad\qquad
+       \exists S_2, \result,~
        {\vdashstore S_2 \ok} \wedge
        {\vdashstoreextends S_1 \extendsto S_2} \wedge
        {\vdashresult \result : [t_2^\ast]} \wedge
-       \X{hf}(S_1; \val^\ast) = S_2; \result
+       R = (S_2; \result)
      \end{array}
    }{
      S \vdashfuncinst \{\FITYPE~[t_1^\ast] \to [t_2^\ast], \FIHOSTCODE~\X{hf}\} : [t_1^\ast] \to [t_2^\ast]
@@ -211,17 +218,17 @@ Module instances are classified by *module contexts*, which are regular :ref:`co
 
   * Or the :ref:`external value <syntax-externval>` :math:`\EVFUNC~\X{fa}` must be :ref:`valid <valid-externval-func>` with some :ref:`external type <syntax-externtype>` :math:`\ETFUNC~\X{ft}`.
 
-* The :ref:`limits <syntax-limits>` :math:`\{\LMIN~n, \LMAX~m^?\}` must be :ref:`valid <valid-limits>`.
+* The :ref:`limits <syntax-limits>` :math:`\{\LMIN~n, \LMAX~m^?\}` must be :ref:`valid <valid-limits>` within range :math:`2^{32}`.
 
-* Then the table instance is valid with :ref:`table type <syntax-tabletype>` :math:`\{\LMIN~n, \LMAX~m^?\}~\ANYFUNC`.
+* Then the table instance is valid with :ref:`table type <syntax-tabletype>` :math:`\{\LMIN~n, \LMAX~m^?\}~\FUNCREF`.
 
 .. math::
    \frac{
      ((S \vdash \EVFUNC~\X{fa} : \ETFUNC~\functype)^?)^n
      \qquad
-     \vdashlimits \{\LMIN~n, \LMAX~m^?\} \ok
+     \vdashlimits \{\LMIN~n, \LMAX~m^?\} : 2^{32}
    }{
-     S \vdashtableinst \{ \TIELEM~(\X{fa}^?)^n, \TIMAX~m^? \} : \{\LMIN~n, \LMAX~m^?\}~\ANYFUNC
+     S \vdashtableinst \{ \TIELEM~(\X{fa}^?)^n, \TIMAX~m^? \} : \{\LMIN~n, \LMAX~m^?\}~\FUNCREF
    }
 
 
@@ -231,13 +238,13 @@ Module instances are classified by *module contexts*, which are regular :ref:`co
 :ref:`Memory Instances <syntax-meminst>` :math:`\{ \MIDATA~b^n, \MIMAX~m^? \}`
 ..............................................................................
 
-* The :ref:`limits <syntax-limits>` :math:`\{\LMIN~n, \LMAX~m^?\}` must be :ref:`valid <valid-limits>`.
+* The :ref:`limits <syntax-limits>` :math:`\{\LMIN~n, \LMAX~m^?\}` must be :ref:`valid <valid-limits>` within range :math:`2^{16}`.
 
 * Then the memory instance is valid with :ref:`memory type <syntax-memtype>` :math:`\{\LMIN~n, \LMAX~m^?\}`.
 
 .. math::
    \frac{
-     \vdashlimits \{\LMIN~n, \LMAX~m^?\} \ok
+     \vdashlimits \{\LMIN~n, \LMAX~m^?\} : 2^{16}
    }{
      S \vdashmeminst \{ \MIDATA~b^n, \MIMAX~m^? \} : \{\LMIN~n, \LMAX~m^?\}
    }
@@ -369,17 +376,17 @@ Finally, :ref:`frames <syntax-frame>` are classified with *frame contexts*, whic
 * The :ref:`store <syntax-store>` :math:`S` must be :ref:`valid <valid-store>`.
 
 * Under no allowed return type,
-  the :ref:`thread <syntax-thread>` :math:`T` must be :ref:`valid <valid-thread>` with some :ref:`result type <syntax-resulttype>` :math:`[t^?]`.
+  the :ref:`thread <syntax-thread>` :math:`T` must be :ref:`valid <valid-thread>` with some :ref:`result type <syntax-resulttype>` :math:`[t^\ast]`.
 
-* Then the configuration is valid with the :ref:`result type <syntax-resulttype>` :math:`[t^?]`.
+* Then the configuration is valid with the :ref:`result type <syntax-resulttype>` :math:`[t^\ast]`.
 
 .. math::
    \frac{
      \vdashstore S \ok
      \qquad
-     S; \epsilon \vdashthread T : [t^?]
+     S; \epsilon \vdashthread T : [t^\ast]
    }{
-     \vdashconfig S; T : [t^?]
+     \vdashconfig S; T : [t^\ast]
    }
 
 
@@ -396,17 +403,17 @@ Finally, :ref:`frames <syntax-frame>` are classified with *frame contexts*, whic
 * Let :math:`C'` be the same :ref:`context <context>` as :math:`C`, but with |CRETURN| set to :math:`\resulttype^?`.
 
 * Under context :math:`C'`,
-  the instruction sequence :math:`\instr^\ast` must be :ref:`valid <valid-instr-seq>` with some type :math:`[] \to [t^?]`.
+  the instruction sequence :math:`\instr^\ast` must be :ref:`valid <valid-instr-seq>` with some type :math:`[] \to [t^\ast]`.
 
-* Then the thread is valid with the :ref:`result type <syntax-resulttype>` :math:`[t^?]`.
+* Then the thread is valid with the :ref:`result type <syntax-resulttype>` :math:`[t^\ast]`.
 
 .. math::
    \frac{
      S \vdashframe F : C
      \qquad
-     S; C,\CRETURN~\resulttype^? \vdashinstrseq \instr^\ast : [] \to [t^?]
+     S; C,\CRETURN~\resulttype^? \vdashinstrseq \instr^\ast : [] \to [t^\ast]
    }{
-     S; \resulttype^? \vdashthread F; \instr^\ast : [t^?]
+     S; \resulttype^? \vdashthread F; \instr^\ast : [t^\ast]
    }
 
 
@@ -483,7 +490,7 @@ To that end, all previous typing judgements :math:`C \vdash \X{prop}` are genera
 :math:`\INITELEM~\tableaddr~o~x^n`
 ..................................
 
-* The :ref:`external table value <syntax-externval>` :math:`\EVTABLE~\tableaddr` must be :ref:`valid <valid-externval-table>` with some :ref:`external table type <syntax-externtype>` :math:`\ETTABLE~\limits~\ANYFUNC`.
+* The :ref:`external table value <syntax-externval>` :math:`\EVTABLE~\tableaddr` must be :ref:`valid <valid-externval-table>` with some :ref:`external table type <syntax-externtype>` :math:`\ETTABLE~\limits~\FUNCREF`.
 
 * The index :math:`o + n` must be smaller than or equal to :math:`\limits.\LMIN`.
 
@@ -495,7 +502,7 @@ To that end, all previous typing judgements :math:`C \vdash \X{prop}` are genera
 
 .. math::
    \frac{
-     S \vdashexternval \EVTABLE~\tableaddr : \ETTABLE~\limits~\ANYFUNC
+     S \vdashexternval \EVTABLE~\tableaddr : \ETTABLE~\limits~\FUNCREF
      \qquad
      o + n \leq \limits.\LMIN
      \qquad
@@ -531,22 +538,22 @@ To that end, all previous typing judgements :math:`C \vdash \X{prop}` are genera
 :math:`\LABEL_n\{\instr_0^\ast\}~\instr^\ast~\END`
 ..................................................
 
-* The instruction sequence :math:`\instr_0^\ast` must be :ref:`valid <valid-instr-seq>` with some type :math:`[t_1^n] \to [t_2^?]`.
+* The instruction sequence :math:`\instr_0^\ast` must be :ref:`valid <valid-instr-seq>` with some type :math:`[t_1^n] \to [t_2^*]`.
 
 * Let :math:`C'` be the same :ref:`context <context>` as :math:`C`, but with the :ref:`result type <syntax-resulttype>` :math:`[t_1^n]` prepended to the |CLABELS| vector.
 
 * Under context :math:`C'`,
-  the instruction sequence :math:`\instr^\ast` must be :ref:`valid <valid-instr-seq>` with type :math:`[] \to [t_2^?]`.
+  the instruction sequence :math:`\instr^\ast` must be :ref:`valid <valid-instr-seq>` with type :math:`[] \to [t_2^*]`.
 
-* Then the compound instruction is valid with type :math:`[] \to [t_2^?]`.
+* Then the compound instruction is valid with type :math:`[] \to [t_2^*]`.
 
 .. math::
    \frac{
-     S; C \vdashinstrseq \instr_0^\ast : [t_1^n] \to [t_2^?]
+     S; C \vdashinstrseq \instr_0^\ast : [t_1^n] \to [t_2^*]
      \qquad
-     S; C,\CLABELS\,[t_1^n] \vdashinstrseq \instr^\ast : [] \to [t_2^?]
+     S; C,\CLABELS\,[t_1^n] \vdashinstrseq \instr^\ast : [] \to [t_2^*]
    }{
-     S; C \vdashadmininstr \LABEL_n\{\instr_0^\ast\}~\instr^\ast~\END : [] \to [t_2^?]
+     S; C \vdashadmininstr \LABEL_n\{\instr_0^\ast\}~\instr^\ast~\END : [] \to [t_2^*]
    }
 
 
@@ -584,7 +591,7 @@ The necessary constraints are codified by the notion of store *extension*:
 a store state :math:`S'` extends state :math:`S`, written :math:`S \extendsto S'`, when the following rules hold.
 
 .. note::
-   Extension does not imply that the new store is valid, which is defined :ref:separately `above <valid-store>`.
+   Extension does not imply that the new store is valid, which is defined separately :ref:`above <valid-store>`.
 
 
 .. index:: store, function instance, table instance, memory instance, global instance
@@ -709,12 +716,12 @@ Theorems
 ~~~~~~~~
 
 Given the definition of :ref:`valid configurations <valid-config>`,
-the standard soundness theorems hold.
+the standard soundness theorems hold. [#cite-cpp2018]_
 
 **Theorem (Preservation).**
 If a :ref:`configuration <syntax-config>` :math:`S;T` is :ref:`valid <valid-config>` with :ref:`result type <syntax-resulttype>` :math:`[t^\ast]` (i.e., :math:`\vdashconfig S;T : [t^\ast]`),
 and steps to :math:`S';T'` (i.e., :math:`S;T \stepto S';T'`),
-then :math:`S';T'` is a valid configuration with the same resulttype (i.e., :math:`\vdashconfig S';T' : [t^\ast]`).
+then :math:`S';T'` is a valid configuration with the same result type (i.e., :math:`\vdashconfig S';T' : [t^\ast]`).
 Furthermore, :math:`S'` is an :ref:`extension <extend-store>` of :math:`S` (i.e., :math:`\vdashstoreextends S \extendsto S'`).
 
 A *terminal* :ref:`thread <syntax-thread>` is one whose sequence of :ref:`instructions <syntax-instr>` is a :ref:`result <syntax-result>`.
@@ -729,7 +736,7 @@ From Preservation and Progress the soundness of the WebAssembly type system foll
 
 **Corollary (Soundness).**
 If a :ref:`configuration <syntax-config>` :math:`S;T` is :ref:`valid <valid-config>` (i.e., :math:`\vdashconfig S;T : [t^\ast]` for some :ref:`result type <syntax-resulttype>` :math:`[t^\ast]`),
-then it either diverges or takes a finite number of steps to reach a terminal configuration :math:`S';T'` (i.e., :math:`S;T \stepto^\ast S';T'`) that is valid with the same resulttype (i.e., :math:`\vdashconfig S';T' : [t^\ast]`)
+then it either diverges or takes a finite number of steps to reach a terminal configuration :math:`S';T'` (i.e., :math:`S;T \stepto^\ast S';T'`) that is valid with the same result type (i.e., :math:`\vdashconfig S';T' : [t^\ast]`)
 and where :math:`S'` is an :ref:`extension <extend-store>` of :math:`S` (i.e., :math:`\vdashstoreextends S \extendsto S'`).
 
 In other words, every thread in a valid configuration either runs forever, traps, or terminates with a result that has the expected type.
@@ -739,3 +746,7 @@ Consequently, given a :ref:`valid store <valid-store>`, no computation defined b
 .. [#cite-pldi2017]
    The formalization and theorems are derived from the following article:
    Andreas Haas, Andreas Rossberg, Derek Schuff, Ben Titzer, Dan Gohman, Luke Wagner, Alon Zakai, JF Bastien, Michael Holman. |PLDI2017|_. Proceedings of the 38th ACM SIGPLAN Conference on Programming Language Design and Implementation (PLDI 2017). ACM 2017.
+
+.. [#cite-cpp2018]
+   A machine-verified version of the formalization and soundness proof is described in the following article:
+   Conrad Watt. |CPP2018|_. Proceedings of the 7th ACM SIGPLAN Conference on Certified Programs and Proofs (CPP 2018). ACM 2018.

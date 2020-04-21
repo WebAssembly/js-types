@@ -15,7 +15,7 @@ WebAssembly computation is performed by executing individual :ref:`instructions 
 Numeric Instructions
 ~~~~~~~~~~~~~~~~~~~~
 
-Numeric instructions are defined in terms of the basic :ref:`numeric operators <exec-numeric>`.
+Numeric instructions are defined in terms of the generic :ref:`numeric operators <exec-numeric>`.
 The mapping of numeric instructions to their underlying operators is expressed by the following definition:
 
 .. math::
@@ -28,11 +28,19 @@ And for :ref:`conversion operators <exec-cvtop>`:
 
 .. math::
    \begin{array}{lll@{\qquad}l}
-   \X{cvtop}_{t_1,t_2}(c) &=& \X{cvtop}_{|t_1|,|t_2|}(c) \\
+   \X{cvtop}^{\sx^?}_{t_1,t_2}(c) &=& \X{cvtop}^{\sx^?}_{|t_1|,|t_2|}(c) \\
    \end{array}
 
 Where the underlying operators are partial, the corresponding instruction will :ref:`trap <trap>` when the result is not defined.
 Where the underlying operators are non-deterministic, because they may return one of multiple possible :ref:`NaN <syntax-nan>` values, so are the corresponding instructions.
+
+.. note::
+   For example, the result of instruction :math:`\I32.\ADD` applied to operands :math:`i_1, i_2`
+   invokes :math:`\ADD_{\I32}(i_1, i_2)`,
+   which maps to the generic :math:`\iadd_{32}(i_1, i_2)` via the above definition.
+   Similarly, :math:`\I64.\TRUNC\K{\_}\F32\K{\_s}` applied to :math:`z`
+   invokes :math:`\TRUNC^{\K{s}}_{\F32,\I64}(z)`,
+   which maps to the generic :math:`\truncs_{32,64}(z)`.
 
 
 .. _exec-const:
@@ -70,7 +78,7 @@ Where the underlying operators are non-deterministic, because they may return on
    (t\K{.}\CONST~c_1)~t\K{.}\unop &\stepto& (t\K{.}\CONST~c)
      & (\iff c \in \unop_t(c_1)) \\
    (t\K{.}\CONST~c_1)~t\K{.}\unop &\stepto& \TRAP
-     & (\iff \unop_{t_1,t_2}(c_1) = \{\})
+     & (\iff \unop_{t}(c_1) = \{\})
    \end{array}
 
 
@@ -100,7 +108,7 @@ Where the underlying operators are non-deterministic, because they may return on
    (t\K{.}\CONST~c_1)~(t\K{.}\CONST~c_2)~t\K{.}\binop &\stepto& (t\K{.}\CONST~c)
      & (\iff c \in \binop_t(c_1,c_2)) \\
    (t\K{.}\CONST~c_1)~(t\K{.}\CONST~c_2)~t\K{.}\binop &\stepto& \TRAP
-     & (\iff \binop_{t_1,t_2}(c_1) = \{\})
+     & (\iff \binop_{t}(c_1,c2) = \{\})
    \end{array}
 
 
@@ -148,16 +156,16 @@ Where the underlying operators are non-deterministic, because they may return on
 
 .. _exec-cvtop:
 
-:math:`t_2\K{.}\cvtop/t_1`
-..........................
+:math:`t_2\K{.}\cvtop\K{\_}t_1\K{\_}\sx^?`
+..........................................
 
 1. Assert: due to :ref:`validation <valid-cvtop>`, a value of :ref:`value type <syntax-valtype>` :math:`t_1` is on the top of the stack.
 
 2. Pop the value :math:`t_1.\CONST~c_1` from the stack.
 
-3. If :math:`\cvtop_{t_1,t_2}(c_1)` is defined:
+3. If :math:`\cvtop^{\sx^?}_{t_1,t_2}(c_1)` is defined:
 
-   a. Let :math:`c_2` be a possible result of computing :math:`\cvtop_{t_1,t_2}(c_1)`.
+   a. Let :math:`c_2` be a possible result of computing :math:`\cvtop^{\sx^?}_{t_1,t_2}(c_1)`.
 
    b. Push the value :math:`t_2.\CONST~c_2` to the stack.
 
@@ -167,10 +175,10 @@ Where the underlying operators are non-deterministic, because they may return on
 
 .. math::
    \begin{array}{lcl@{\qquad}l}
-   (t\K{.}\CONST~c_1)~t_2\K{.}\cvtop\K{/}t_1 &\stepto& (t_2\K{.}\CONST~c_2)
-     & (\iff c_2 \in \cvtop_{t_1,t_2}(c_1)) \\
-   (t\K{.}\CONST~c_1)~t_2\K{.}\cvtop\K{/}t_1 &\stepto& \TRAP
-     & (\iff \cvtop_{t_1,t_2}(c_1) = \{\})
+   (t_1\K{.}\CONST~c_1)~t_2\K{.}\cvtop\K{\_}t_1\K{\_}\sx^? &\stepto& (t_2\K{.}\CONST~c_2)
+     & (\iff c_2 \in \cvtop^{\sx^?}_{t_1,t_2}(c_1)) \\
+   (t_1\K{.}\CONST~c_1)~t_2\K{.}\cvtop\K{\_}t_1\K{\_}\sx^? &\stepto& \TRAP
+     & (\iff \cvtop^{\sx^?}_{t_1,t_2}(c_1) = \{\})
    \end{array}
 
 
@@ -237,14 +245,14 @@ Parametric Instructions
 Variable Instructions
 ~~~~~~~~~~~~~~~~~~~~~
 
-.. _exec-get_local:
+.. _exec-local.get:
 
-:math:`\GETLOCAL~x`
+:math:`\LOCALGET~x`
 ...................
 
 1. Let :math:`F` be the :ref:`current <exec-notation-textual>` :ref:`frame <syntax-frame>`.
 
-2. Assert: due to :ref:`validation <valid-get_local>`, :math:`F.\ALOCALS[x]` exists.
+2. Assert: due to :ref:`validation <valid-local.get>`, :math:`F.\ALOCALS[x]` exists.
 
 3. Let :math:`\val` be the value :math:`F.\ALOCALS[x]`.
 
@@ -252,21 +260,21 @@ Variable Instructions
 
 .. math::
    \begin{array}{lcl@{\qquad}l}
-   F; (\GETLOCAL~x) &\stepto& F; \val
+   F; (\LOCALGET~x) &\stepto& F; \val
      & (\iff F.\ALOCALS[x] = \val) \\
    \end{array}
 
 
-.. _exec-set_local:
+.. _exec-local.set:
 
-:math:`\SETLOCAL~x`
+:math:`\LOCALSET~x`
 ...................
 
 1. Let :math:`F` be the :ref:`current <exec-notation-textual>` :ref:`frame <syntax-frame>`.
 
-2. Assert: due to :ref:`validation <valid-set_local>`, :math:`F.\ALOCALS[x]` exists.
+2. Assert: due to :ref:`validation <valid-local.set>`, :math:`F.\ALOCALS[x]` exists.
 
-3. Assert: due to :ref:`validation <valid-set_local>`, a value is on the top of the stack.
+3. Assert: due to :ref:`validation <valid-local.set>`, a value is on the top of the stack.
 
 4. Pop the value :math:`\val` from the stack.
 
@@ -274,17 +282,17 @@ Variable Instructions
 
 .. math::
    \begin{array}{lcl@{\qquad}l}
-   F; \val~(\SETLOCAL~x) &\stepto& F'; \epsilon
+   F; \val~(\LOCALSET~x) &\stepto& F'; \epsilon
      & (\iff F' = F \with \ALOCALS[x] = \val) \\
    \end{array}
 
 
-.. _exec-tee_local:
+.. _exec-local.tee:
 
-:math:`\TEELOCAL~x`
+:math:`\LOCALTEE~x`
 ...................
 
-1. Assert: due to :ref:`validation <valid-tee_local>`, a value is on the top of the stack.
+1. Assert: due to :ref:`validation <valid-local.tee>`, a value is on the top of the stack.
 
 2. Pop the value :math:`\val` from the stack.
 
@@ -292,26 +300,26 @@ Variable Instructions
 
 4. Push the value :math:`\val` to the stack.
 
-5. :ref:`Execute <exec-set_local>` the instruction :math:`(\SETLOCAL~x)`.
+5. :ref:`Execute <exec-local.set>` the instruction :math:`(\LOCALSET~x)`.
 
 .. math::
    \begin{array}{lcl@{\qquad}l}
-   \val~(\TEELOCAL~x) &\stepto& \val~\val~(\SETLOCAL~x)
+   \val~(\LOCALTEE~x) &\stepto& \val~\val~(\LOCALSET~x)
    \end{array}
 
 
-.. _exec-get_global:
+.. _exec-global.get:
 
-:math:`\GETGLOBAL~x`
+:math:`\GLOBALGET~x`
 ....................
 
 1. Let :math:`F` be the :ref:`current <exec-notation-textual>` :ref:`frame <syntax-frame>`.
 
-2. Assert: due to :ref:`validation <valid-get_global>`, :math:`F.\AMODULE.\MIGLOBALS[x]` exists.
+2. Assert: due to :ref:`validation <valid-global.get>`, :math:`F.\AMODULE.\MIGLOBALS[x]` exists.
 
 3. Let :math:`a` be the :ref:`global address <syntax-globaladdr>` :math:`F.\AMODULE.\MIGLOBALS[x]`.
 
-4. Assert: due to :ref:`validation <valid-get_global>`, :math:`S.\SGLOBALS[a]` exists.
+4. Assert: due to :ref:`validation <valid-global.get>`, :math:`S.\SGLOBALS[a]` exists.
 
 5. Let :math:`\X{glob}` be the :ref:`global instance <syntax-globalinst>` :math:`S.\SGLOBALS[a]`.
 
@@ -322,29 +330,29 @@ Variable Instructions
 .. math::
    \begin{array}{l}
    \begin{array}{lcl@{\qquad}l}
-   S; F; (\GETGLOBAL~x) &\stepto& S; F; \val
+   S; F; (\GLOBALGET~x) &\stepto& S; F; \val
    \end{array}
    \\ \qquad
      (\iff S.\SGLOBALS[F.\AMODULE.\MIGLOBALS[x]].\GIVALUE = \val) \\
    \end{array}
 
 
-.. _exec-set_global:
+.. _exec-global.set:
 
-:math:`\SETGLOBAL~x`
+:math:`\GLOBALSET~x`
 ....................
 
 1. Let :math:`F` be the :ref:`current <exec-notation-textual>` :ref:`frame <syntax-frame>`.
 
-2. Assert: due to :ref:`validation <valid-set_global>`, :math:`F.\AMODULE.\MIGLOBALS[x]` exists.
+2. Assert: due to :ref:`validation <valid-global.set>`, :math:`F.\AMODULE.\MIGLOBALS[x]` exists.
 
 3. Let :math:`a` be the :ref:`global address <syntax-globaladdr>` :math:`F.\AMODULE.\MIGLOBALS[x]`.
 
-4. Assert: due to :ref:`validation <valid-set_global>`, :math:`S.\SGLOBALS[a]` exists.
+4. Assert: due to :ref:`validation <valid-global.set>`, :math:`S.\SGLOBALS[a]` exists.
 
 5. Let :math:`\X{glob}` be the :ref:`global instance <syntax-globalinst>` :math:`S.\SGLOBALS[a]`.
 
-6. Assert: due to :ref:`validation <valid-set_global>`, a value is on the top of the stack.
+6. Assert: due to :ref:`validation <valid-global.set>`, a value is on the top of the stack.
 
 7. Pop the value :math:`\val` from the stack.
 
@@ -353,14 +361,14 @@ Variable Instructions
 .. math::
    \begin{array}{l}
    \begin{array}{lcl@{\qquad}l}
-   S; F; \val~(\SETGLOBAL~x) &\stepto& S'; F; \epsilon
+   S; F; \val~(\GLOBALSET~x) &\stepto& S'; F; \epsilon
    \end{array}
    \\ \qquad
    (\iff S' = S \with \SGLOBALS[F.\AMODULE.\MIGLOBALS[x]].\GIVALUE = \val) \\
    \end{array}
 
 .. note::
-   :ref:`Validation <valid-set_global>` ensures that the global is, in fact, marked as mutable.
+   :ref:`Validation <valid-global.set>` ensures that the global is, in fact, marked as mutable.
 
 
 .. index:: memory instruction, memory index, store, frame, address, memory address, memory instance, store, frame, value, integer, limits, value type, bit width
@@ -533,18 +541,18 @@ Memory Instructions
    \end{array}
 
 
-.. _exec-current_memory:
+.. _exec-memory.size:
 
-:math:`\CURRENTMEMORY`
-......................
+:math:`\MEMORYSIZE`
+...................
 
 1. Let :math:`F` be the :ref:`current <exec-notation-textual>` :ref:`frame <syntax-frame>`.
 
-2. Assert: due to :ref:`validation <valid-current_memory>`, :math:`F.\AMODULE.\MIMEMS[0]` exists.
+2. Assert: due to :ref:`validation <valid-memory.size>`, :math:`F.\AMODULE.\MIMEMS[0]` exists.
 
 3. Let :math:`a` be the :ref:`memory address <syntax-memaddr>` :math:`F.\AMODULE.\MIMEMS[0]`.
 
-4. Assert: due to :ref:`validation <valid-current_memory>`, :math:`S.\SMEMS[a]` exists.
+4. Assert: due to :ref:`validation <valid-memory.size>`, :math:`S.\SMEMS[a]` exists.
 
 5. Let :math:`\X{mem}` be the :ref:`memory instance <syntax-meminst>` :math:`S.\SMEMS[a]`.
 
@@ -555,47 +563,49 @@ Memory Instructions
 .. math::
    \begin{array}{l}
    \begin{array}{lcl@{\qquad}l}
-   S; F; \CURRENTMEMORY &\stepto& S; F; (\I32.\CONST~\X{sz})
+   S; F; \MEMORYSIZE &\stepto& S; F; (\I32.\CONST~\X{sz})
    \end{array}
    \\ \qquad
      (\iff |S.\SMEMS[F.\AMODULE.\MIMEMS[0]].\MIDATA| = \X{sz}\cdot64\,\F{Ki}) \\
    \end{array}
 
 
-.. _exec-grow_memory:
+.. _exec-memory.grow:
 
-:math:`\GROWMEMORY`
+:math:`\MEMORYGROW`
 ...................
 
 1. Let :math:`F` be the :ref:`current <exec-notation-textual>` :ref:`frame <syntax-frame>`.
 
-2. Assert: due to :ref:`validation <valid-grow_memory>`, :math:`F.\AMODULE.\MIMEMS[0]` exists.
+2. Assert: due to :ref:`validation <valid-memory.grow>`, :math:`F.\AMODULE.\MIMEMS[0]` exists.
 
 3. Let :math:`a` be the :ref:`memory address <syntax-memaddr>` :math:`F.\AMODULE.\MIMEMS[0]`.
 
-4. Assert: due to :ref:`validation <valid-grow_memory>`, :math:`S.\SMEMS[a]` exists.
+4. Assert: due to :ref:`validation <valid-memory.grow>`, :math:`S.\SMEMS[a]` exists.
 
 5. Let :math:`\X{mem}` be the :ref:`memory instance <syntax-meminst>` :math:`S.\SMEMS[a]`.
 
 6. Let :math:`\X{sz}` be the length of :math:`S.\SMEMS[a]` divided by the :ref:`page size <page-size>`.
 
-7. Assert: due to :ref:`validation <valid-grow_memory>`, a value of :ref:`value type <syntax-valtype>` |I32| is on the top of the stack.
+7. Assert: due to :ref:`validation <valid-memory.grow>`, a value of :ref:`value type <syntax-valtype>` |I32| is on the top of the stack.
 
 8. Pop the value :math:`\I32.\CONST~n` from the stack.
 
-9. Either, try :ref:`growing <grow-mem>` :math:`\X{mem}` by :math:`n` :ref:`pages <page-size>`:
+9. Let :math:`\X{err}` be the |i32| value :math:`2^{32}-1`, for which :math:`\signed_{32}(\X{err})` is :math:`-1`.
+
+10. Either, try :ref:`growing <grow-mem>` :math:`\X{mem}` by :math:`n` :ref:`pages <page-size>`:
 
    a. If it succeeds, push the value :math:`\I32.\CONST~\X{sz}` to the stack.
 
-   b. Else, push the value :math:`\I32.\CONST~(-1)` to the stack.
+   b. Else, push the value :math:`\I32.\CONST~\X{err}` to the stack.
 
-10. Or, push the value :math:`\I32.\CONST~(-1)` to the stack.
+11. Or, push the value :math:`\I32.\CONST~\X{err}` to the stack.
 
 .. math::
    ~\\[-1ex]
    \begin{array}{l}
    \begin{array}{lcl@{\qquad}l}
-   S; F; (\I32.\CONST~n)~\GROWMEMORY &\stepto& S'; F; (\I32.\CONST~\X{sz})
+   S; F; (\I32.\CONST~n)~\MEMORYGROW &\stepto& S'; F; (\I32.\CONST~\X{sz})
    \end{array}
    \\ \qquad
      \begin{array}[t]{@{}r@{~}l@{}}
@@ -605,12 +615,12 @@ Memory Instructions
      \end{array}
    \\[1ex]
    \begin{array}{lcl@{\qquad}l}
-   S; F; (\I32.\CONST~n)~\GROWMEMORY &\stepto& S; F; (\I32.\CONST~{-1})
+   S; F; (\I32.\CONST~n)~\MEMORYGROW &\stepto& S; F; (\I32.\CONST~\signed_{32}^{-1}(-1))
    \end{array}
    \end{array}
 
 .. note::
-   The |GROWMEMORY| instruction is non-deterministic.
+   The |MEMORYGROW| instruction is non-deterministic.
    It may either succeed, returning the old memory size :math:`\X{sz}`,
    or fail, returning :math:`{-1}`.
    Failure *must* occur if the referenced memory instance has a maximum size defined that would be exceeded.
@@ -655,70 +665,92 @@ Control Instructions
 
 .. _exec-block:
 
-:math:`\BLOCK~[t^?]~\instr^\ast~\END`
-.....................................
+:math:`\BLOCK~\blocktype~\instr^\ast~\END`
+..........................................
 
-1. Let :math:`n` be the arity :math:`|t^?|` of the :ref:`result type <syntax-resulttype>` :math:`t^?`.
+1. Assert: due to :ref:`validation <valid-blocktype>`, :math:`\expand_F(\blocktype)` is defined.
 
-2. Let :math:`L` be the label whose arity is :math:`n` and whose continuation is the end of the block.
+2. Let :math:`[t_1^m] \to [t_2^n]` be the :ref:`function type <syntax-functype>` :math:`\expand_F(\blocktype)`.
 
-3. :ref:`Enter <exec-instr-seq-enter>` the block :math:`\instr^\ast` with label :math:`L`.
+3. Let :math:`L` be the label whose arity is :math:`n` and whose continuation is the end of the block.
+
+4. Assert: due to :ref:`validation <valid-block>`, there are at least :math:`m` values on the top of the stack.
+
+5. Pop the values :math:`\val^m` from the stack.
+
+6. :ref:`Enter <exec-instr-seq-enter>` the block :math:`\val^m~\instr^\ast` with label :math:`L`.
 
 .. math::
    ~\\[-1ex]
    \begin{array}{lcl@{\qquad}l}
-   \BLOCK~[t^n]~\instr^\ast~\END &\stepto&
-     \LABEL_n\{\epsilon\}~\instr^\ast~\END
+   F; \val^m~\BLOCK~\X{bt}~\instr^\ast~\END &\stepto&
+     F; \LABEL_n\{\epsilon\}~\val^m~\instr^\ast~\END
+     & (\iff \expand_F(\X{bt}) = [t_1^m] \to [t_2^n])
    \end{array}
 
 
 .. _exec-loop:
 
-:math:`\LOOP~[t^?]~\instr^\ast~\END`
-....................................
+:math:`\LOOP~\blocktype~\instr^\ast~\END`
+.........................................
 
-1. Let :math:`L` be the label whose arity is :math:`0` and whose continuation is the start of the loop.
+1. Assert: due to :ref:`validation <valid-blocktype>`, :math:`\expand_F(\blocktype)` is defined.
 
-2. :ref:`Enter <exec-instr-seq-enter>` the block :math:`\instr^\ast` with label :math:`L`.
+2. Let :math:`[t_1^m] \to [t_2^n]` be the :ref:`function type <syntax-functype>` :math:`\expand_F(\blocktype)`.
+
+3. Let :math:`L` be the label whose arity is :math:`m` and whose continuation is the start of the loop.
+
+4. Assert: due to :ref:`validation <valid-loop>`, there are at least :math:`m` values on the top of the stack.
+
+5. Pop the values :math:`\val^m` from the stack.
+
+6. :ref:`Enter <exec-instr-seq-enter>` the block :math:`\val^m~\instr^\ast` with label :math:`L`.
 
 .. math::
    ~\\[-1ex]
    \begin{array}{lcl@{\qquad}l}
-   \LOOP~[t^?]~\instr^\ast~\END &\stepto&
-     \LABEL_0\{\LOOP~[t^?]~\instr^\ast~\END\}~\instr^\ast~\END
+   F; \val^m~\LOOP~\X{bt}~\instr^\ast~\END &\stepto&
+     F; \LABEL_m\{\LOOP~\X{bt}~\instr^\ast~\END\}~\val^m~\instr^\ast~\END
+     & (\iff \expand_F(\X{bt}) = [t_1^m] \to [t_2^n])
    \end{array}
 
 
 .. _exec-if:
 
-:math:`\IF~[t^?]~\instr_1^\ast~\ELSE~\instr_2^\ast~\END`
-........................................................
+:math:`\IF~\blocktype~\instr_1^\ast~\ELSE~\instr_2^\ast~\END`
+.............................................................
 
-1. Assert: due to :ref:`validation <valid-if>`, a value of :ref:`value type <syntax-valtype>` |I32| is on the top of the stack.
+1. Assert: due to :ref:`validation <valid-blocktype>`, :math:`\expand_F(\blocktype)` is defined.
 
-2. Pop the value :math:`\I32.\CONST~c` from the stack.
+2. Let :math:`[t_1^m] \to [t_2^n]` be the :ref:`function type <syntax-functype>` :math:`\expand_F(\blocktype)`.
 
-3. Let :math:`n` be the arity :math:`|t^?|` of the :ref:`result type <syntax-resulttype>` :math:`t^?`.
+3. Let :math:`L` be the label whose arity is :math:`n` and whose continuation is the end of the |IF| instruction.
 
-4. Let :math:`L` be the label whose arity is :math:`n` and whose continuation is the end of the |IF| instruction.
+4. Assert: due to :ref:`validation <valid-if>`, a value of :ref:`value type <syntax-valtype>` |I32| is on the top of the stack.
 
-5. If :math:`c` is non-zero, then:
+5. Pop the value :math:`\I32.\CONST~c` from the stack.
 
-   a. :ref:`Enter <exec-instr-seq-enter>` the block :math:`\instr_1^\ast` with label :math:`L`.
+6. Assert: due to :ref:`validation <valid-if>`, there are at least :math:`m` values on the top of the stack.
 
-6. Else:
+7. Pop the values :math:`\val^m` from the stack.
 
-   a. :ref:`Enter <exec-instr-seq-enter>` the block :math:`\instr_2^\ast` with label :math:`L`.
+8. If :math:`c` is non-zero, then:
+
+   a. :ref:`Enter <exec-instr-seq-enter>` the block :math:`\val^m~\instr_1^\ast` with label :math:`L`.
+
+9. Else:
+
+   a. :ref:`Enter <exec-instr-seq-enter>` the block :math:`\val^m~\instr_2^\ast` with label :math:`L`.
 
 .. math::
    ~\\[-1ex]
    \begin{array}{lcl@{\qquad}l}
-   (\I32.\CONST~c)~\IF~[t^n]~\instr_1^\ast~\ELSE~\instr_2^\ast~\END &\stepto&
-     \LABEL_n\{\epsilon\}~\instr_1^\ast~\END
-     & (\iff c \neq 0) \\
-   (\I32.\CONST~c)~\IF~[t^n]~\instr_1^\ast~\ELSE~\instr_2^\ast~\END &\stepto&
-     \LABEL_n\{\epsilon\}~\instr_2^\ast~\END
-     & (\iff c = 0) \\
+   F; \val^m~(\I32.\CONST~c)~\IF~\X{bt}~\instr_1^\ast~\ELSE~\instr_2^\ast~\END &\stepto&
+     F; \LABEL_n\{\epsilon\}~\val^m~\instr_1^\ast~\END
+     & (\iff c \neq 0 \wedge \expand_F(\X{bt}) = [t_1^m] \to [t_2^n]) \\
+   F; \val^m~(\I32.\CONST~c)~\IF~\X{bt}~\instr_1^\ast~\ELSE~\instr_2^\ast~\END &\stepto&
+     F; \LABEL_n\{\epsilon\}~\val^m~\instr_2^\ast~\END
+     & (\iff c = 0 \wedge \expand_F(\X{bt}) = [t_1^m] \to [t_2^n]) \\
    \end{array}
 
 
@@ -823,7 +855,7 @@ Control Instructions
 
 2. Let :math:`n` be the arity of :math:`F`.
 
-3. Assert: due to :ref:`validation <valid-br>`, there are at least :math:`n` values on the top of the stack.
+3. Assert: due to :ref:`validation <valid-return>`, there are at least :math:`n` values on the top of the stack.
 
 4. Pop the results :math:`\val^n` from the stack.
 
@@ -1009,35 +1041,34 @@ Invocation of :ref:`function address <syntax-funcaddr>` :math:`a`
 
 3. Let :math:`[t_1^n] \to [t_2^m]` be the :ref:`function type <syntax-functype>` :math:`f.\FITYPE`.
 
-4. Assert: due to :ref:`validation <valid-call>`, :math:`m \leq 1`.
+4. Let :math:`t^\ast` be the list of :ref:`value types <syntax-valtype>` :math:`f.\FICODE.\FLOCALS`.
 
-5. Let :math:`t^\ast` be the list of :ref:`value types <syntax-valtype>` :math:`f.\FICODE.\FLOCALS`.
+5. Let :math:`\instr^\ast~\END` be the :ref:`expression <syntax-expr>` :math:`f.\FICODE.\FBODY`.
 
-6. Let :math:`\instr^\ast~\END` be the :ref:`expression <syntax-expr>` :math:`f.\FICODE.\FBODY`.
+6. Assert: due to :ref:`validation <valid-call>`, :math:`n` values are on the top of the stack.
 
-7. Assert: due to :ref:`validation <valid-call>`, :math:`n` values are on the top of the stack.
+7. Pop the values :math:`\val^n` from the stack.
 
-8. Pop the values :math:`\val^n` from the stack.
+8. Let :math:`\val_0^\ast` be the list of zero values of types :math:`t^\ast`.
 
-9. Let :math:`\val_0^\ast` be the list of zero values of types :math:`t^\ast`.
+9. Let :math:`F` be the :ref:`frame <syntax-frame>` :math:`\{ \AMODULE~f.\FIMODULE, \ALOCALS~\val^n~\val_0^\ast \}`.
 
-10. Let :math:`F` be the :ref:`frame <syntax-frame>` :math:`\{ \AMODULE~f.\FIMODULE, \ALOCALS~\val^n~\val_0^\ast \}`.
+10. Push the activation of :math:`F` with arity :math:`m` to the stack.
 
-11. Push the activation of :math:`F` with arity :math:`m` to the stack.
+11. Let :math:`L` be the :ref:`label <syntax-label>` whose arity is :math:`m` and whose continuation is the end of the function.
 
-12. :ref:`Execute <exec-block>` the instruction :math:`\BLOCK~[t_2^m]~\instr^\ast~\END`.
+12. :ref:`Enter <exec-instr-seq-enter>` the instruction sequence :math:`\instr^\ast` with label :math:`L`.
 
 .. math::
    ~\\[-1ex]
    \begin{array}{l}
    \begin{array}{lcl@{\qquad}l}
-   S; \val^n~(\INVOKE~a) &\stepto& S; \FRAME_m\{F\}~\BLOCK~[t_2^m]~\instr^\ast~\END~\END
+   S; \val^n~(\INVOKE~a) &\stepto& S; \FRAME_m\{F\}~\LABEL_m\{\}~\instr^\ast~\END~\END
    \end{array}
    \\ \qquad
      \begin{array}[t]{@{}r@{~}l@{}}
      (\iff & S.\SFUNCS[a] = f \\
      \wedge & f.\FITYPE = [t_1^n] \to [t_2^m] \\
-     \wedge & m \leq 1 \\
      \wedge & f.\FICODE = \{ \FTYPE~x, \FLOCALS~t^k, \FBODY~\instr^\ast~\END \} \\
      \wedge & F = \{ \AMODULE~f.\FIMODULE, ~\ALOCALS~\val^n~(t.\CONST~0)^k \})
      \end{array} \\
@@ -1049,7 +1080,7 @@ Invocation of :ref:`function address <syntax-funcaddr>` :math:`a`
 Returning from a function
 .........................
 
-When the end of a funtion is reached without a jump (i.e., |RETURN|) or trap aborting it, then the following steps are performed.
+When the end of a function is reached without a jump (i.e., |RETURN|) or trap aborting it, then the following steps are performed.
 
 1. Let :math:`F` be the :ref:`current <exec-notation-textual>` :ref:`frame <syntax-frame>`.
 
@@ -1098,18 +1129,28 @@ Furthermore, the resulting store must be :ref:`valid <valid-store>`, i.e., all d
    \\ \qquad
      \begin{array}[t]{@{}r@{~}l@{}}
      (\iff & S.\SFUNCS[a] = \{ \FITYPE~[t_1^n] \to [t_2^m], \FIHOSTCODE~\X{hf} \} \\
-     \wedge & \X{hf}(S; \val^n) = S'; \result) \\
+     \wedge & (S'; \result) \in \X{hf}(S; \val^n)) \\
+     \end{array} \\
+   \begin{array}{lcl@{\qquad}l}
+   S; \val^n~(\INVOKE~a) &\stepto& S; \val^n~(\INVOKE~a)
+   \end{array}
+   \\ \qquad
+     \begin{array}[t]{@{}r@{~}l@{}}
+     (\iff & S.\SFUNCS[a] = \{ \FITYPE~[t_1^n] \to [t_2^m], \FIHOSTCODE~\X{hf} \} \\
+     \wedge & \bot \in \X{hf}(S; \val^n)) \\
      \end{array} \\
    \end{array}
 
 Here, :math:`\X{hf}(S; \val^n)` denotes the implementation-defined execution of host function :math:`\X{hf}` in current store :math:`S` with arguments :math:`\val^n`.
-The outcome is a pair of a modified store :math:`S'` and a :ref:`result <syntax-result>`.
+It yields a set of possible outcomes, where each element is either a pair of a modified store :math:`S'` and a :ref:`result <syntax-result>`
+or the special value :math:`\bot` indicating divergence.
+A host function is non-deterministic if there is at least one argument for which the set of outcomes is not singular.
 
 For a WebAssembly implementation to be :ref:`sound <soundness>` in the presence of host functions,
 every :ref:`host function instance <syntax-funcinst>` must be :ref:`valid <valid-hostfuncinst>`,
 which means that it adheres to suitable pre- and post-conditions:
 under a :ref:`valid store <valid-store>` :math:`S`, and given arguments :math:`\val^n` matching the ascribed parameter types :math:`t_1^n`,
-executing the host function must produce a valid store :math:`S'` that is an :ref:`extension <extend-store>` of :math:`S` and a result matching the ascribed return types :math:`t_2^m`.
+executing the host function must yield a non-empty set of possible outcomes each of which is either divergence or consists of a valid store :math:`S'` that is an :ref:`extension <extend-store>` of :math:`S` and a result matching the ascribed return types :math:`t_2^m`.
 All these notions are made precise in the :ref:`Appendix <soundness>`.
 
 .. note::
@@ -1130,17 +1171,18 @@ An :ref:`expression <syntax-expr>` is *evaluated* relative to a :ref:`current <e
 
 1. Jump to the start of the instruction sequence :math:`\instr^\ast` of the expression.
 
-2. Execute of the instruction sequence.
+2. Execute the instruction sequence.
 
 3. Assert: due to :ref:`validation <valid-expr>`, the top of the stack contains a :ref:`value <syntax-val>`.
 
-4. Pop the the :ref:`value <syntax-val>` :math:`\val` from the stack.
+4. Pop the :ref:`value <syntax-val>` :math:`\val` from the stack.
 
 The value :math:`\val` is the result of the evaluation.
 
 .. math::
-   \frac{
-     S; F; \instr^\ast \stepto^\ast S'; F'; v
-   }{
-     S; F; \instr^\ast~\END \stepto^\ast S'; F'; v
-   }
+   S; F; \instr^\ast \stepto S'; F'; \instr'^\ast
+   \qquad (\iff S; F; \instr^\ast~\END \stepto S'; F'; \instr'^\ast~\END)
+
+.. note::
+   Evaluation iterates this reduction rule until reaching a value.
+   Expressions constituting :ref:`function <syntax-func>` bodies are executed during function :ref:`invocation <exec-invoke>`.

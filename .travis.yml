@@ -1,11 +1,24 @@
-language: c++
+language: python
+python:
+  - "3.7"
+dist: bionic
 
-sudo: on
+addons:
+  apt:
+    sources:
+      - sourceline: 'deb https://dl.yarnpkg.com/debian/ stable main'
+        key_url: 'https://dl.yarnpkg.com/debian/pubkey.gpg'
+    packages:
+      - ocaml
+      - ocamlbuild
+      - texlive-full
+      - yarn
 
 install:
-  - ./interpreter/meta/travis/install-ocaml.sh
-  - sudo pip install sphinx
-  - sudo apt-get install texlive-full
+  - pip install Sphinx==2.4.4
+  - git clone https://github.com/tabatkins/bikeshed.git
+  - pip install --editable $PWD/bikeshed
+  - bikeshed update
 
 script:
   - ./interpreter/meta/travis/build-test.sh

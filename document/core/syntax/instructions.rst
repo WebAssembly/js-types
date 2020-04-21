@@ -7,12 +7,7 @@ Instructions
 
 WebAssembly code consists of sequences of *instructions*.
 Its computational model is based on a *stack machine* in that instructions manipulate values on an implicit *operand stack*,
-consuming (popping) argument values and producing (pushing) result values.
-
-.. note::
-   In the current version of WebAssembly,
-   at most one result value can be pushed by a single instruction.
-   This restriction may be lifted in future versions.
+consuming (popping) argument values and producing or returning (pushing) result values.
 
 In addition to dynamic operands from the stack, some instructions also have static *immediate* arguments,
 typically :ref:`indices <syntax-index>` or type annotations,
@@ -64,14 +59,18 @@ These operations closely match respective operations available in hardware.
      \K{i}\X{nn}\K{.}\itestop \\&&|&
      \K{i}\X{nn}\K{.}\irelop ~|~
      \K{f}\X{nn}\K{.}\frelop \\&&|&
-     \K{i32.}\WRAP\K{/i64} ~|~
-     \K{i64.}\EXTEND\K{\_}\sx/\K{i32} ~|~
-     \K{i}\X{nn}\K{.}\TRUNC\K{\_}\sx/\K{f}\X{mm} \\&&|&
-     \K{f32.}\DEMOTE\K{/f64} ~|~
-     \K{f64.}\PROMOTE\K{/f32} ~|~
-     \K{f}\X{nn}\K{.}\CONVERT\K{\_}\sx/\K{i}\X{mm} \\&&|&
-     \K{i}\X{nn}\K{.}\REINTERPRET\K{/f}\X{nn} ~|~
-     \K{f}\X{nn}\K{.}\REINTERPRET\K{/i}\X{nn} \\
+     \K{i}\X{nn}\K{.}\EXTEND\K{8\_s} ~|~
+     \K{i}\X{nn}\K{.}\EXTEND\K{16\_s} ~|~
+     \K{i64.}\EXTEND\K{\_i32}\K{\_}\sx ~|~
+     \K{i32.}\WRAP\K{\_i64} ~|~
+     \K{i}\X{nn}\K{.}\TRUNC\K{\_f}\X{mm}\K{\_}\sx \\&&|&
+     \K{i}\X{nn}\K{.}\TRUNC\K{\_sat\_f}\X{mm}\K{\_}\sx \\&&|&
+     \K{f32.}\DEMOTE\K{\_f64} ~|~
+     \K{f64.}\PROMOTE\K{\_f32} ~|~
+     \K{f}\X{nn}\K{.}\CONVERT\K{\_i}\X{mm}\K{\_}\sx \\&&|&
+     \K{i}\X{nn}\K{.}\REINTERPRET\K{\_f}\X{nn} ~|~
+     \K{f}\X{nn}\K{.}\REINTERPRET\K{\_i}\X{nn} \\&&|&
+     \dots \\
    \production{integer unary operator} & \iunop &::=&
      \K{clz} ~|~
      \K{ctz} ~|~
@@ -128,18 +127,18 @@ For each type, several subcategories can be distinguished:
 
 * *Constants*: return a static constant.
 
-* *Unary Operators*: consume one operand and produce one result of the respective type.
+* *Unary Operations*: consume one operand and produce one result of the respective type.
 
-* *Binary Operators*: consume two operands and produce one result of the respective type.
+* *Binary Operations*: consume two operands and produce one result of the respective type.
 
 * *Tests*: consume one operand of the respective type and produce a Boolean integer result.
 
 * *Comparisons*: consume two operands of the respective type and produce a Boolean integer result.
 
 * *Conversions*: consume a value of one type and produce a result of another
-  (the source type of the conversion is the one after the ":math:`\K{/}`").
+  (the source type of the conversion is the one after the ":math:`\K{\_}`").
 
-Some integer instructions come in two flavours,
+Some integer instructions come in two flavors,
 where a signedness annotation |sx| distinguishes whether the operands are to be :ref:`interpreted <aux-signed>` as :ref:`unsigned <syntax-uint>` or :ref:`signed <syntax-sint>` integers.
 For the other integer instructions, the use of two's complement for the signed interpretation means that they behave the same regardless of signedness.
 
@@ -151,15 +150,19 @@ Occasionally, it is convenient to group operators together according to the foll
 
 .. math::
    \begin{array}{llll}
-   \production{unary operator} & \unop &::=& \iunop ~|~ \funop \\
+   \production{unary operator} & \unop &::=&
+     \iunop ~|~
+     \funop ~|~
+     \EXTEND{N}\K{\_s} ~|~ \\
    \production{binary operator} & \binop &::=& \ibinop ~|~ \fbinop \\
    \production{test operator} & \testop &::=& \itestop \\
    \production{relational operator} & \relop &::=& \irelop ~|~ \frelop \\
    \production{conversion operator} & \cvtop &::=&
      \WRAP ~|~
-     \EXTEND\K{\_}\sx ~|~
-     \TRUNC\K{\_}\sx ~|~
-     \CONVERT\K{\_}\sx ~|~
+     \EXTEND ~|~
+     \TRUNC ~|~
+     \TRUNC\K{\_sat} ~|~
+     \CONVERT ~|~
      \DEMOTE ~|~
      \PROMOTE ~|~
      \REINTERPRET \\
@@ -183,9 +186,9 @@ Instructions in this group can operate on operands of any :ref:`value type <synt
      \SELECT
    \end{array}
 
-The |DROP| operator simply throws away a single operand.
+The |DROP| instruction simply throws away a single operand.
 
-The |SELECT| operator selects one of its first two operands based on whether its third operand is zero or not.
+The |SELECT| instruction selects one of its first two operands based on whether its third operand is zero or not.
 
 
 .. index:: ! variable instruction, local, global, local index, global index
@@ -195,21 +198,21 @@ The |SELECT| operator selects one of its first two operands based on whether its
 Variable Instructions
 ~~~~~~~~~~~~~~~~~~~~~
 
-Variable instructions are concerned with the access to :ref:`local <syntax-local>` or :ref:`global <syntax-global>` variables.
+Variable instructions are concerned with access to :ref:`local <syntax-local>` or :ref:`global <syntax-global>` variables.
 
 .. math::
    \begin{array}{llcl}
    \production{instruction} & \instr &::=&
      \dots \\&&|&
-     \GETLOCAL~\localidx \\&&|&
-     \SETLOCAL~\localidx \\&&|&
-     \TEELOCAL~\localidx \\&&|&
-     \GETGLOBAL~\globalidx \\&&|&
-     \SETGLOBAL~\globalidx \\
+     \LOCALGET~\localidx \\&&|&
+     \LOCALSET~\localidx \\&&|&
+     \LOCALTEE~\localidx \\&&|&
+     \GLOBALGET~\globalidx \\&&|&
+     \GLOBALSET~\globalidx \\
    \end{array}
 
 These instructions get or set the values of variables, respectively.
-The |TEELOCAL| instruction is like |SETLOCAL| but also returns its argument.
+The |LOCALTEE| instruction is like |LOCALSET| but also returns its argument.
 
 
 .. index:: ! memory instruction, memory, memory index, page size, little endian, trap
@@ -240,12 +243,12 @@ Instructions in this group are concerned with linear :ref:`memory <syntax-mem>`.
      \K{i}\X{nn}\K{.}\STORE\K{8}~\memarg ~|~
      \K{i}\X{nn}\K{.}\STORE\K{16}~\memarg ~|~
      \K{i64.}\STORE\K{32}~\memarg \\&&|&
-     \CURRENTMEMORY \\&&|&
-     \GROWMEMORY \\
+     \MEMORYSIZE \\&&|&
+     \MEMORYGROW \\
    \end{array}
 
 Memory is accessed with |LOAD| and |STORE| instructions for the different :ref:`value types <syntax-valtype>`.
-They all take a *memory immediate* |memarg| that contains an address *offset* and an *alignment* hint (in base 2 logarithmic representation).
+They all take a *memory immediate* |memarg| that contains an address *offset* and the expected *alignment* (expressed as the exponent of a power of 2).
 Integer loads and stores can optionally specify a *storage size* that is smaller than the :ref:`bit width <syntax-valtype>` of the respective value type.
 In the case of loads, a sign extension mode |sx| is then required to select appropriate behavior.
 
@@ -256,8 +259,8 @@ A :ref:`trap <trap>` results if any of the accessed memory bytes lies outside th
 .. note::
    Future version of WebAssembly might provide memory instructions with 64 bit address ranges.
 
-The |CURRENTMEMORY| instruction returns the current size of a memory.
-The |GROWMEMORY| instruction grows memory by a given delta and returns the previous size, or :math:`-1` if enough memory cannot be allocated.
+The |MEMORYSIZE| instruction returns the current size of a memory.
+The |MEMORYGROW| instruction grows memory by a given delta and returns the previous size, or :math:`-1` if enough memory cannot be allocated.
 Both instructions operate in units of :ref:`page size <page-size>`.
 
 .. note::
@@ -266,8 +269,11 @@ Both instructions operate in units of :ref:`page size <page-size>`.
    This restriction may be lifted in future versions.
 
 
-.. index:: ! control instruction, ! structured control, ! label, ! block, ! branch, ! unwinding, result type, label index, function index, type index, vector, trap, function, table, function type
+.. index:: ! control instruction, ! structured control, ! label, ! block, ! block type, ! branch, ! unwinding, result type, label index, function index, type index, vector, trap, function, table, function type, value type, type index
    pair: abstract syntax; instruction
+   pair: abstract syntax; block type
+   pair: block; type
+.. _syntax-blocktype:
 .. _syntax-nop:
 .. _syntax-unreachable:
 .. _syntax-block:
@@ -289,13 +295,15 @@ Instructions in this group affect the flow of control.
 
 .. math::
    \begin{array}{llcl}
+   \production{block type} & \blocktype &::=&
+     \typeidx ~|~ \valtype^? \\
    \production{instruction} & \instr &::=&
      \dots \\&&|&
      \NOP \\&&|&
      \UNREACHABLE \\&&|&
-     \BLOCK~\resulttype~\instr^\ast~\END \\&&|&
-     \LOOP~\resulttype~\instr^\ast~\END \\&&|&
-     \IF~\resulttype~\instr^\ast~\ELSE~\instr^\ast~\END \\&&|&
+     \BLOCK~\blocktype~\instr^\ast~\END \\&&|&
+     \LOOP~\blocktype~\instr^\ast~\END \\&&|&
+     \IF~\blocktype~\instr^\ast~\ELSE~\instr^\ast~\END \\&&|&
      \BR~\labelidx \\&&|&
      \BRIF~\labelidx \\&&|&
      \BRTABLE~\vec(\labelidx)~\labelidx \\&&|&
@@ -311,11 +319,13 @@ The |UNREACHABLE| instruction causes an unconditional :ref:`trap <trap>`.
 The |BLOCK|, |LOOP| and |IF| instructions are *structured* instructions.
 They bracket nested sequences of instructions, called *blocks*, terminated with, or separated by, |END| or |ELSE| pseudo-instructions.
 As the grammar prescribes, they must be well-nested.
-A structured instruction can produce a value as described by the annotated :ref:`result type <syntax-resulttype>`.
+
+A structured instruction can consume *input* and produce *output* on the operand stack according to its annotated *block type*.
+It is given either as a :ref:`type index <syntax-funcidx>` that refers to a suitable :ref:`function type <syntax-functype>`, or as an optional :ref:`value type <syntax-valtype>` inline, which is a shorthand for the function type :math:`[] \to [\valtype^?]`.
 
 Each structured control instruction introduces an implicit *label*.
 Labels are targets for branch instructions that reference them with :ref:`label indices <syntax-labelidx>`.
-Unlike with other index spaces, indexing of labels is relative by nesting depth,
+Unlike with other :ref:`index spaces <syntax-index>`, indexing of labels is relative by nesting depth,
 that is, label :math:`0` refers to the innermost structured control instruction enclosing the referring branch instruction,
 while increasing indices refer to those farther out.
 Consequently, labels can only be referenced from *within* the associated structured control instruction.
@@ -328,7 +338,7 @@ In case of |LOOP| it is a *backward jump* to the beginning of the loop.
 
 .. note::
    This enforces *structured control flow*.
-   Intuitively, a branch targeting a |BLOCK| or |IF| behaves like a :math:`\K{break}` statement,
+   Intuitively, a branch targeting a |BLOCK| or |IF| behaves like a :math:`\K{break}` statement in most C-like languages,
    while a branch targeting a |LOOP| behaves like a :math:`\K{continue}` statement.
 
 Branch instructions come in several flavors:
@@ -337,11 +347,13 @@ Branch instructions come in several flavors:
 and |BRTABLE| performs an indirect branch through an operand indexing into the label vector that is an immediate to the instruction, or to a default target if the operand is out of bounds.
 The |RETURN| instruction is a shortcut for an unconditional branch to the outermost block, which implicitly is the body of the current function.
 Taking a branch *unwinds* the operand stack up to the height where the targeted structured control instruction was entered.
-However, forward branches that target a control instruction with a non-empty result type consume matching operands first and push them back on the operand stack after unwinding, as a result for the terminated structured instruction.
+However, branches may additionally consume operands themselves, which they push back on the operand stack after unwinding.
+Forward branches require operands according to the output of the targeted block's type, i.e., represent the values produced by the terminated block.
+Backward branches require operands according to the input of the targeted block's type, i.e., represent the values consumed by the restarted block.
 
 The |CALL| instruction invokes another :ref:`function <syntax-func>`, consuming the necessary arguments from the stack and returning the result values of the call.
 The |CALLINDIRECT| instruction calls a function indirectly through an operand indexing into a :ref:`table <syntax-table>`.
-Since tables may contain function elements of heterogeneous type |ANYFUNC|,
+Since tables may contain function elements of heterogeneous type |FUNCREF|,
 the callee is dynamically checked against the :ref:`function type <syntax-functype>` indexed by the instruction's immediate, and the call aborted with a :ref:`trap <trap>` if it does not match.
 
 .. note::

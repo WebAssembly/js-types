@@ -50,12 +50,12 @@ type code = value stack * admin_instr list
 and admin_instr = admin_instr' phrase
 and admin_instr' =
   | Plain of instr'
+  | Invoke of func_inst
   | Trapping of string
   | Returning of value stack
   | Breaking of int32 * value stack
-  | Label of int * instr list * code
-  | Frame of int * frame * code
-  | Invoke of func_inst
+  | Label of int32 * instr list * code
+  | Frame of int32 * frame * code
 
 type config =
 {
@@ -93,11 +93,21 @@ let func_elem inst x i at =
   | FuncElem f -> f
   | _ -> Crash.error at ("type mismatch for element " ^ Int32.to_string i)
 
+let func_type_of = function
+  | Func.AstFunc (t, inst, f) -> t
+  | Func.HostFunc (t, _) -> t
+
+let block_type inst bt =
+  match bt with
+  | VarBlockType x -> type_ inst x
+  | ValBlockType None -> FuncType ([], [])
+  | ValBlockType (Some t) -> FuncType ([], [t])
+
 let take n (vs : 'a stack) at =
-  try Lib.List.take n vs with Failure _ -> Crash.error at "stack underflow"
+  try Lib.List32.take n vs with Failure _ -> Crash.error at "stack underflow"
 
 let drop n (vs : 'a stack) at =
-  try Lib.List.drop n vs with Failure _ -> Crash.error at "stack underflow"
+  try Lib.List32.drop n vs with Failure _ -> Crash.error at "stack underflow"
 
 
 (* Evaluation *)
@@ -124,17 +134,24 @@ let rec step (c : config) : config =
       | Nop, vs ->
         vs, []
 
-      | Block (ts, es'), vs ->
-        vs, [Label (List.length ts, [], ([], List.map plain es')) @@ e.at]
+      | Block (bt, es'), vs ->
+        let FuncType (ts1, ts2) = block_type frame.inst bt in
+        let n1 = Lib.List32.length ts1 in
+        let n2 = Lib.List32.length ts2 in
+        let args, vs' = take n1 vs e.at, drop n1 vs e.at in
+        vs', [Label (n2, [], (args, List.map plain es')) @@ e.at]
 
-      | Loop (ts, es'), vs ->
-        vs, [Label (0, [e' @@ e.at], ([], List.map plain es')) @@ e.at]
+      | Loop (bt, es'), vs ->
+        let FuncType (ts1, ts2) = block_type frame.inst bt in
+        let n1 = Lib.List32.length ts1 in
+        let args, vs' = take n1 vs e.at, drop n1 vs e.at in
+        vs', [Label (n1, [e' @@ e.at], (args, List.map plain es')) @@ e.at]
 
-      | If (ts, es1, es2), I32 0l :: vs' ->
-        vs', [Plain (Block (ts, es2)) @@ e.at]
+      | If (bt, es1, es2), I32 0l :: vs' ->
+        vs', [Plain (Block (bt, es2)) @@ e.at]
 
-      | If (ts, es1, es2), I32 i :: vs' ->
-        vs', [Plain (Block (ts, es1)) @@ e.at]
+      | If (bt, es1, es2), I32 i :: vs' ->
+        vs', [Plain (Block (bt, es1)) @@ e.at]
 
       | Br x, vs ->
         [], [Breaking (x.it, vs) @@ e.at]
@@ -152,7 +169,7 @@ let rec step (c : config) : config =
         vs', [Plain (Br (Lib.List32.nth xs i)) @@ e.at]
 
       | Return, vs ->
-        vs, [Returning vs @@ e.at]
+        [], [Returning vs @@ e.at]
 
       | Call x, vs ->
         vs, [Invoke (func frame.inst x) @@ e.at]
@@ -173,28 +190,28 @@ let rec step (c : config) : config =
       | Select, I32 i :: v2 :: v1 :: vs' ->
         v1 :: vs', []
 
-      | GetLocal x, vs ->
+      | LocalGet x, vs ->
         !(local frame x) :: vs, []
 
-      | SetLocal x, v :: vs' ->
+      | LocalSet x, v :: vs' ->
         local frame x := v;
         vs', []
 
-      | TeeLocal x, v :: vs' ->
+      | LocalTee x, v :: vs' ->
         local frame x := v;
         v :: vs', []
 
-      | GetGlobal x, vs ->
+      | GlobalGet x, vs ->
         Global.load (global frame.inst x) :: vs, []
 
-      | SetGlobal x, v :: vs' ->
+      | GlobalSet x, v :: vs' ->
         (try Global.store (global frame.inst x) v; vs', []
         with Global.NotMutable -> Crash.error e.at "write to immutable global"
            | Global.Type -> Crash.error e.at "type mismatch at global write")
 
       | Load {offset; ty; sz; _}, I32 i :: vs' ->
         let mem = memory frame.inst (0l @@ e.at) in
-        let addr = I64_convert.extend_u_i32 i in
+        let addr = I64_convert.extend_i32_u i in
         (try
           let v =
             match sz with
@@ -205,7 +222,7 @@ let rec step (c : config) : config =
 
       | Store {offset; sz; _}, v :: I32 i :: vs' ->
         let mem = memory frame.inst (0l @@ e.at) in
-        let addr = I64_convert.extend_u_i32 i in
+        let addr = I64_convert.extend_i32_u i in
         (try
           (match sz with
           | None -> Memory.store_value mem addr offset v
@@ -214,11 +231,11 @@ let rec step (c : config) : config =
           vs', []
         with exn -> vs', [Trapping (memory_error e.at exn) @@ e.at]);
 
-      | CurrentMemory, vs ->
+      | MemorySize, vs ->
         let mem = memory frame.inst (0l @@ e.at) in
         I32 (Memory.size mem) :: vs, []
 
-      | GrowMemory, I32 delta :: vs' ->
+      | MemoryGrow, I32 delta :: vs' ->
         let mem = memory frame.inst (0l @@ e.at) in
         let old_size = Memory.size mem in
         let result =
@@ -301,15 +318,15 @@ let rec step (c : config) : config =
       Exhaustion.error e.at "call stack exhausted"
 
     | Invoke func, vs ->
-      let FuncType (ins, out) = Func.type_of func in
-      let n = List.length ins in
-      let args, vs' = take n vs e.at, drop n vs e.at in
+      let FuncType (ins, out) = func_type_of func in
+      let n1, n2 = Lib.List32.length ins, Lib.List32.length out in
+      let args, vs' = take n1 vs e.at, drop n1 vs e.at in
       (match func with
       | Func.AstFunc (t, inst', f) ->
         let locals' = List.rev args @ List.map default_value f.it.locals in
-        let code' = [], [Plain (Block (out, f.it.body)) @@ f.at] in
         let frame' = {inst = !inst'; locals = List.map ref locals'} in
-        vs', [Frame (List.length out, frame', code') @@ e.at]
+        let instr' = [Label (n2, [], ([], List.map plain f.it.body)) @@ f.at] in
+        vs', [Frame (n2, frame', ([], instr')) @@ e.at]
 
       | Func.HostFunc (t, f) ->
         try List.rev (f (List.rev args)) @ vs', []
@@ -335,8 +352,8 @@ let rec eval (c : config) : value stack =
 let invoke (func : func_inst) (vs : value list) : value list =
   let at = match func with Func.AstFunc (_,_, f) -> f.at | _ -> no_region in
   let FuncType (ins, out) = Func.type_of func in
-  if List.length vs <> List.length ins then
-    Crash.error at "wrong number of arguments";
+  if List.map Values.type_of vs <> ins then
+    Crash.error at "wrong number or types of arguments";
   let c = config empty_module_inst (List.rev vs) [Invoke func @@ at] in
   try List.rev (eval c) with Stack_overflow ->
     Exhaustion.error at "call stack exhausted"
@@ -402,7 +419,7 @@ let init_memory (inst : module_inst) (seg : memory_segment) =
   let {index; offset = const; init} = seg.it in
   let mem = memory inst index in
   let offset' = i32 (eval_const inst const) const.at in
-  let offset = I64_convert.extend_u_i32 offset' in
+  let offset = I64_convert.extend_i32_u offset' in
   let end_ = Int64.(add offset (of_int (String.length init))) in
   let bound = Memory.bound mem in
   if I64.lt_u bound end_ || I64.lt_u end_ offset then
@@ -433,7 +450,7 @@ let init (m : module_) (exts : extern list) : module_inst =
       types = List.map (fun type_ -> type_.it) types }
   in
   let fs = List.map (create_func inst0) funcs in
-  let inst =
+  let inst1 =
     { inst0 with
       funcs = inst0.funcs @ fs;
       tables = inst0.tables @ List.map (create_table inst0) tables;
@@ -441,10 +458,11 @@ let init (m : module_) (exts : extern list) : module_inst =
       globals = inst0.globals @ List.map (create_global inst0) globals;
     }
   in
+  let inst = {inst1 with exports = List.map (create_export inst1) exports} in
   List.iter (init_func inst) fs;
   let init_elems = List.map (init_table inst) elems in
   let init_datas = List.map (init_memory inst) data in
   List.iter (fun f -> f ()) init_elems;
   List.iter (fun f -> f ()) init_datas;
   Lib.Option.app (fun x -> ignore (invoke (func inst x) [])) start;
-  {inst with exports = List.map (create_export inst) exports}
+  inst

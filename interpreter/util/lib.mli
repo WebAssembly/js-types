@@ -2,6 +2,9 @@
 
 module Fun :
 sig
+  val curry : ('a * 'b -> 'c) -> ('a -> 'b -> 'c)
+  val uncurry : ('a -> 'b -> 'c) -> ('a * 'b -> 'c)
+
   val repeat : int -> ('a -> unit) -> 'a -> unit
 end
 
@@ -18,10 +21,12 @@ sig
   val index_of : 'a -> 'a list -> int option
   val index_where : ('a -> bool) -> 'a list -> int option
   val map_filter : ('a -> 'b option) -> 'a list -> 'b list
+  val concat_map : ('a -> 'b list) -> 'a list -> 'b list
 end
 
 module List32 :
 sig
+  val make : int32 -> 'a -> 'a list
   val length : 'a list -> int32
   val nth : 'a list -> int32 -> 'a (* raises Failure *)
   val take : int32 -> 'a list -> 'a list (* raises Failure *)
@@ -70,4 +75,5 @@ sig
   val explode : string -> char list
   val split : string -> char -> string list
   val breakup : string -> int -> string list
+  val find_from_opt : (char -> bool) -> string -> int -> int option
 end

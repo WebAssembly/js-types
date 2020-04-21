@@ -49,7 +49,7 @@ let label (c : context) x = lookup "label" c.labels x
  * Note: The declarative typing rules are non-deterministic, that is, they
  * have the liberty to locally "guess" the right types implied by the context.
  * In the algorithmic formulation required here, stack types are hence modelled
- * as lists of _options_ of types here, where `None` representss a locally
+ * as lists of _options_ of types, where `None` represents a locally
  * unknown type. Furthermore, an ellipses flag represents arbitrary sequences
  * of unknown types, in order to handle stack polymorphism algorithmically.
  *)
@@ -106,16 +106,18 @@ let type_cvtop at = function
     (match cvtop with
     | ExtendSI32 | ExtendUI32 -> error at "invalid conversion"
     | WrapI64 -> I64Type
-    | TruncSF32 | TruncUF32 | ReinterpretFloat -> F32Type
-    | TruncSF64 | TruncUF64 -> F64Type
+    | TruncSF32 | TruncUF32 | TruncSSatF32 | TruncUSatF32
+    | ReinterpretFloat -> F32Type
+    | TruncSF64 | TruncUF64 | TruncSSatF64 | TruncUSatF64 -> F64Type
     ), I32Type
   | Values.I64 cvtop ->
     let open I64Op in
     (match cvtop with
     | ExtendSI32 | ExtendUI32 -> I32Type
     | WrapI64 -> error at "invalid conversion"
-    | TruncSF32 | TruncUF32 -> F32Type
-    | TruncSF64 | TruncUF64 | ReinterpretFloat -> F64Type
+    | TruncSF32 | TruncUF32 | TruncSSatF32 | TruncUSatF32 -> F32Type
+    | TruncSF64 | TruncUF64 | TruncSSatF64 | TruncUSatF64
+    | ReinterpretFloat -> F64Type
     ), I64Type
   | Values.F32 cvtop ->
     let open F32Op in
@@ -137,21 +139,26 @@ let type_cvtop at = function
 
 (* Expressions *)
 
+let check_pack sz t at =
+  require (packed_size sz < size t) at "invalid sign extension"
+
+let check_unop unop at =
+  match unop with
+  | Values.I32 (IntOp.ExtendS sz) | Values.I64 (IntOp.ExtendS sz) ->
+    check_pack sz (Values.type_of unop) at
+  | _ -> ()
+
 let check_memop (c : context) (memop : 'a memop) get_sz at =
   ignore (memory c (0l @@ at));
   let size =
     match get_sz memop.sz with
     | None -> size memop.ty
     | Some sz ->
-      require (memop.ty = I64Type || sz <> Memory.Mem32) at
-        "memory size too big";
-      Memory.mem_size sz
+      check_pack sz memop.ty at;
+      packed_size sz
   in
   require (1 lsl memop.align <= size) at
     "alignment must not be larger than natural"
-
-let check_arity n at =
-  require (n <= 1) at "invalid result arity, larger than 1 is not (yet) allowed"
 
 
 (*
@@ -174,6 +181,12 @@ let check_arity n at =
  * declarative typing rules.
  *)
 
+let check_block_type (c : context) (bt : block_type) : func_type =
+  match bt with
+  | VarBlockType x -> type_ c x
+  | ValBlockType None -> FuncType ([], [])
+  | ValBlockType (Some t) -> FuncType ([], [t])
+
 let rec check_instr (c : context) (e : instr) (s : infer_stack_type) : op_type =
   match e.it with
   | Unreachable ->
@@ -182,21 +195,28 @@ let rec check_instr (c : context) (e : instr) (s : infer_stack_type) : op_type =
   | Nop ->
     [] --> []
 
-  | Block (ts, es) ->
-    check_arity (List.length ts) e.at;
-    check_block {c with labels = ts :: c.labels} es ts e.at;
-    [] --> ts
+  | Drop ->
+    [peek 0 s] -~> []
 
-  | Loop (ts, es) ->
-    check_arity (List.length ts) e.at;
-    check_block {c with labels = [] :: c.labels} es ts e.at;
-    [] --> ts
+  | Select ->
+    let t = peek 1 s in
+    [t; t; Some I32Type] -~> [t]
 
-  | If (ts, es1, es2) ->
-    check_arity (List.length ts) e.at;
-    check_block {c with labels = ts :: c.labels} es1 ts e.at;
-    check_block {c with labels = ts :: c.labels} es2 ts e.at;
-    [I32Type] --> ts
+  | Block (bt, es) ->
+    let FuncType (ts1, ts2) as ft = check_block_type c bt in
+    check_block {c with labels = ts2 :: c.labels} es ft e.at;
+    ts1 --> ts2
+
+  | Loop (bt, es) ->
+    let FuncType (ts1, ts2) as ft = check_block_type c bt in
+    check_block {c with labels = ts1 :: c.labels} es ft e.at;
+    ts1 --> ts2
+
+  | If (bt, es1, es2) ->
+    let FuncType (ts1, ts2) as ft = check_block_type c bt in
+    check_block {c with labels = ts2 :: c.labels} es1 ft e.at;
+    check_block {c with labels = ts2 :: c.labels} es2 ft e.at;
+    (ts1 @ [I32Type]) --> ts2
 
   | Br x ->
     label c x -->... []
@@ -221,27 +241,20 @@ let rec check_instr (c : context) (e : instr) (s : infer_stack_type) : op_type =
     let FuncType (ins, out) = type_ c x in
     (ins @ [I32Type]) --> out
 
-  | Drop ->
-    [peek 0 s] -~> []
-
-  | Select ->
-    let t = peek 1 s in
-    [t; t; Some I32Type] -~> [t]
-
-  | GetLocal x ->
+  | LocalGet x ->
     [] --> [local c x]
 
-  | SetLocal x ->
+  | LocalSet x ->
     [local c x] --> []
 
-  | TeeLocal x ->
+  | LocalTee x ->
     [local c x] --> [local c x]
 
-  | GetGlobal x ->
+  | GlobalGet x ->
     let GlobalType (t, mut) = global c x in
     [] --> [t]
 
-  | SetGlobal x ->
+  | GlobalSet x ->
     let GlobalType (t, mut) = global c x in
     require (mut = Mutable) x.at "global is immutable";
     [t] --> []
@@ -254,11 +267,11 @@ let rec check_instr (c : context) (e : instr) (s : infer_stack_type) : op_type =
     check_memop c memop (fun sz -> sz) e.at;
     [I32Type; memop.ty] --> []
 
-  | CurrentMemory ->
+  | MemorySize ->
     ignore (memory c (0l @@ e.at));
     [] --> [I32Type]
 
-  | GrowMemory ->
+  | MemoryGrow ->
     ignore (memory c (0l @@ e.at));
     [I32Type] --> [I32Type]
 
@@ -275,6 +288,7 @@ let rec check_instr (c : context) (e : instr) (s : infer_stack_type) : op_type =
     [t; t] --> [I32Type]
 
   | Unary unop ->
+    check_unop unop e.at;
     let t = type_unop unop in
     [t] --> [t]
 
@@ -286,31 +300,35 @@ let rec check_instr (c : context) (e : instr) (s : infer_stack_type) : op_type =
     let t1, t2 = type_cvtop e.at cvtop in
     [t1] --> [t2]
 
-and check_seq (c : context) (es : instr list) : infer_stack_type =
+and check_seq (c : context) (s : infer_stack_type) (es : instr list)
+  : infer_stack_type =
   match es with
   | [] ->
-    stack []
+    s
 
   | _ ->
     let es', e = Lib.List.split_last es in
-    let s = check_seq c es' in
-    let {ins; outs} = check_instr c e s in
-    push outs (pop ins s e.at)
+    let s' = check_seq c s es' in
+    let {ins; outs} = check_instr c e s' in
+    push outs (pop ins s' e.at)
 
-and check_block (c : context) (es : instr list) (ts : stack_type) at =
-  let s = check_seq c es in
-  let s' = pop (stack ts) s at in
+and check_block (c : context) (es : instr list) (ft : func_type) at =
+  let FuncType (ts1, ts2) = ft in
+  let s = check_seq c (stack ts1) es in
+  let s' = pop (stack ts2) s at in
   require (snd s' = []) at
-    ("type mismatch: operator requires " ^ string_of_stack_type ts ^
+    ("type mismatch: block requires " ^ string_of_stack_type ts2 ^
      " but stack has " ^ string_of_infer_types (snd s))
 
 
 (* Types *)
 
-let check_limits {min; max} at =
+let check_limits {min; max} range at msg =
+  require (I32.le_u min range) at msg;
   match max with
   | None -> ()
   | Some max ->
+    require (I32.le_u max range) at msg;
     require (I32.le_u min max) at
       "size minimum must not be greater than maximum"
 
@@ -320,26 +338,24 @@ let check_value_type (t : value_type) at =
 let check_func_type (ft : func_type) at =
   let FuncType (ins, out) = ft in
   List.iter (fun t -> check_value_type t at) ins;
-  List.iter (fun t -> check_value_type t at) out;
-  check_arity (List.length out) at
+  List.iter (fun t -> check_value_type t at) out
 
 let check_table_type (tt : table_type) at =
   let TableType (lim, _) = tt in
-  check_limits lim at
-
-let check_memory_size (sz : I32.t) at =
-  require (I32.le_u sz 65536l) at
-    "memory size must be at most 65536 pages (4GiB)"
+  check_limits lim 0xffff_ffffl at "table size must be at most 2^32-1"
 
 let check_memory_type (mt : memory_type) at =
   let MemoryType lim = mt in
-  check_limits lim at;
-  check_memory_size lim.min at;
-  Lib.Option.app (fun max -> check_memory_size max at) lim.max
+  check_limits lim 0x1_0000l at
+    "memory size must be at most 65536 pages (4GiB)"
 
 let check_global_type (gt : global_type) at =
   let GlobalType (t, mut) = gt in
   check_value_type t at
+
+
+let check_type (t : type_) =
+  check_func_type t.it t.at
 
 
 (* Functions & Constants *)
@@ -356,26 +372,23 @@ let check_global_type (gt : global_type) at =
  *   x : variable
  *)
 
-let check_type (t : type_) =
-  check_func_type t.it t.at
-
 let check_func (c : context) (f : func) =
   let {ftype; locals; body} = f.it in
   let FuncType (ins, out) = type_ c ftype in
   let c' = {c with locals = ins @ locals; results = out; labels = [out]} in
-  check_block c' body out f.at
+  check_block c' body (FuncType ([], out)) f.at
 
 
 let is_const (c : context) (e : instr) =
   match e.it with
   | Const _ -> true
-  | GetGlobal x -> let GlobalType (_, mut) = global c x in mut = Immutable
+  | GlobalGet x -> let GlobalType (_, mut) = global c x in mut = Immutable
   | _ -> false
 
 let check_const (c : context) (const : const) (t : value_type) =
   require (List.for_all (is_const c) const.it) const.at
     "constant expression required";
-  check_block c const.it [t] const.at
+  check_block c const.it (FuncType ([], [t])) const.at
 
 
 (* Tables, Memories, & Globals *)
@@ -426,9 +439,6 @@ let check_import (im : import) (c : context) : context =
     {c with memories = mt :: c.memories}
   | GlobalImport gt ->
     check_global_type gt idesc.at;
-    let GlobalType (_, mut) = gt in
-    require (mut = Immutable) idesc.at
-      "mutable globals cannot be imported (yet)";
     {c with globals = gt :: c.globals}
 
 module NameSet = Set.Make(struct type t = Ast.name let compare = compare end)
@@ -439,10 +449,7 @@ let check_export (c : context) (set : NameSet.t) (ex : export) : NameSet.t =
   | FuncExport x -> ignore (func c x)
   | TableExport x -> ignore (table c x)
   | MemoryExport x -> ignore (memory c x)
-  | GlobalExport x ->
-    let GlobalType (_, mut) = global c x in
-    require (mut = Immutable) edesc.at
-      "mutable globals cannot be exported (yet)"
+  | GlobalExport x -> ignore (global c x)
   );
   require (not (NameSet.mem name set)) ex.at "duplicate export name";
   NameSet.add name set

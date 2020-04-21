@@ -54,7 +54,7 @@ Conventions:
 
   .. math::
      \begin{array}{lll@{\qquad}l}
-     \trunc(\pm q) &=& \pm i & (\iff i \in \mathbb{N} \wedge q - 1 < i \leq q) \\
+     \trunc(\pm q) &=& \pm i & (\iff i \in \mathbb{N} \wedge +q - 1 < i \leq +q) \\
      \end{array}
 
 
@@ -128,7 +128,7 @@ When a number is stored into :ref:`memory <syntax-mem>`, it is converted into a 
    \begin{array}{lll@{\qquad}l}
    \bytes_t(i) &=& \littleendian(\bits_t(i)) \\[1ex]
    \littleendian(\epsilon) &=& \epsilon \\
-   \littleendian(d_1^8~d_2^{N-8}) &=& \ibits_8^{-1}(d_1^8)~\littleendian(d_2^{N-8}) \\
+   \littleendian(d^8~{d'}^\ast~) &=& \littleendian({d'}^\ast)~\ibits_8^{-1}(d^8) \\
    \end{array}
 
 Again these functions are invertable bijections.
@@ -291,7 +291,8 @@ The integer result of predicates -- i.e., :ref:`tests <syntax-testop>` and :ref:
 .. math::
    \begin{array}{@{}lcll}
    \irems_N(i_1, 0) &=& \{\} \\
-   \irems_N(i_1, i_2) &=& \signed_N^{-1}(i_1 - i_2 \cdot \trunc(\signed_N(i_1) / \signed_N(i_2))) \\
+   \irems_N(i_1, i_2) &=& \signed_N^{-1}(j_1 - j_2 \cdot \trunc(j_1 / j_2)) \\
+     && (\where j_1 = \signed_N(i_1) \wedge j_2 = \signed_N(i_2)) \\
    \end{array}
 
 .. note::
@@ -357,9 +358,9 @@ The integer result of predicates -- i.e., :ref:`tests <syntax-testop>` and :ref:
 :math:`\ishru_N(i_1, i_2)`
 ..........................
 
-* Let :math:`j_2` be :math:`i_2` modulo :math:`N`.
+* Let :math:`k` be :math:`i_2` modulo :math:`N`.
 
-* Return the result of shifting :math:`i_1` right by :math:`j_2` bits, extended with :math:`0` bits.
+* Return the result of shifting :math:`i_1` right by :math:`k` bits, extended with :math:`0` bits.
 
 .. math::
    \begin{array}{@{}lcll}
@@ -372,9 +373,9 @@ The integer result of predicates -- i.e., :ref:`tests <syntax-testop>` and :ref:
 :math:`\ishrs_N(i_1, i_2)`
 ..........................
 
-* Let :math:`j_2` be :math:`i_2` modulo :math:`N`.
+* Let :math:`k` be :math:`i_2` modulo :math:`N`.
 
-* Return the result of shifting :math:`i_1` right by :math:`j_2` bits, extended with the most significant bit of the original value.
+* Return the result of shifting :math:`i_1` right by :math:`k` bits, extended with the most significant bit of the original value.
 
 .. math::
    \begin{array}{@{}lcll}
@@ -387,9 +388,9 @@ The integer result of predicates -- i.e., :ref:`tests <syntax-testop>` and :ref:
 :math:`\irotl_N(i_1, i_2)`
 ..........................
 
-* Let :math:`j_2` be :math:`i_2` modulo :math:`N`.
+* Let :math:`k` be :math:`i_2` modulo :math:`N`.
 
-* Return the result of rotating :math:`i_1` left by :math:`j_2` bits.
+* Return the result of rotating :math:`i_1` left by :math:`k` bits.
 
 .. math::
    \begin{array}{@{}lcll}
@@ -402,9 +403,9 @@ The integer result of predicates -- i.e., :ref:`tests <syntax-testop>` and :ref:
 :math:`\irotr_N(i_1, i_2)`
 ..........................
 
-* Let :math:`j_2` be :math:`i_2` modulo :math:`N`.
+* Let :math:`k` be :math:`i_2` modulo :math:`N`.
 
-* Return the result of rotating :math:`i_1` right by :math:`j_2` bits.
+* Return the result of rotating :math:`i_1` right by :math:`k` bits.
 
 .. math::
    \begin{array}{@{}lcll}
@@ -611,6 +612,19 @@ The integer result of predicates -- i.e., :ref:`tests <syntax-testop>` and :ref:
    \end{array}
 
 
+.. _op-iextendn_s:
+
+:math:`\iextendns_N(i)`
+.......................
+
+* Return :math:`\extends_{M,N}(i)`.
+
+.. math::
+   \begin{array}{lll@{\qquad}l}
+   \iextendns_{N}(i) &=& \extends_{M,N}(i) \\
+   \end{array}
+
+
 .. index:: floating-point, IEEE 754
 .. _float-ops:
 
@@ -639,7 +653,7 @@ with the following qualifications:
 Rounding
 ........
 
-Rounding always is round-to-nearest ties-to-even, in correspondance with |IEEE754|_ (Section 4.3.1).
+Rounding always is round-to-nearest ties-to-even, in correspondence with |IEEE754|_ (Section 4.3.1).
 
 An *exact* floating-point number is a rational number that is exactly representable as a :ref:`floating-point number <syntax-float>` of given bit width :math:`N`.
 
@@ -725,7 +739,7 @@ then its sign is non-deterministic and the :ref:`payload <syntax-payload>` is co
 
 * If the payload of all NaN inputs to the operator is :ref:`canonical <canonical-nan>` (including the case that there are no NaN inputs), then the payload of the output is canonical as well.
 
-* Otherwise the payload is picked non-determinsitically among all :ref:`arithmetic NaNs <arithmetic-nan>`; that is, its most significant bit is :math:`1` and all others are unspecified.
+* Otherwise the payload is picked non-deterministically among all :ref:`arithmetic NaNs <arithmetic-nan>`; that is, its most significant bit is :math:`1` and all others are unspecified.
 
 This non-deterministic result is expressed by the following auxiliary function producing a set of allowed outputs from a set of inputs:
 
@@ -745,7 +759,7 @@ This non-deterministic result is expressed by the following auxiliary function p
 
 * If either :math:`z_1` or :math:`z_2` is a NaN, then return an element of :math:`\nans_N\{z_1, z_2\}`.
 
-* Else if both :math:`z_1` and :math:`z_2` are infinities of opposite signs, then return an element of :math:`\nans_N\{z_1, z_2\}`.
+* Else if both :math:`z_1` and :math:`z_2` are infinities of opposite signs, then return an element of :math:`\nans_N\{\}`.
 
 * Else if both :math:`z_1` and :math:`z_2` are infinities of equal sign, then return that infinity.
 
@@ -785,7 +799,7 @@ This non-deterministic result is expressed by the following auxiliary function p
 
 * If either :math:`z_1` or :math:`z_2` is a NaN, then return an element of :math:`\nans_N\{z_1, z_2\}`.
 
-* Else if both :math:`z_1` and :math:`z_2` are infinities of equal signs, then return an element of :math:`\nans_N\{z_1, z_2\}`.
+* Else if both :math:`z_1` and :math:`z_2` are infinities of equal signs, then return an element of :math:`\nans_N\{\}`.
 
 * Else if both :math:`z_1` and :math:`z_2` are infinities of opposite sign, then return :math:`z_1`.
 
@@ -832,7 +846,7 @@ This non-deterministic result is expressed by the following auxiliary function p
 
 * If either :math:`z_1` or :math:`z_2` is a NaN, then return an element of :math:`\nans_N\{z_1, z_2\}`.
 
-* Else if one of :math:`z_1` and :math:`z_2` is a zero and the other an infinity, then return an element of :math:`\nans_N\{z_1, z_2\}`.
+* Else if one of :math:`z_1` and :math:`z_2` is a zero and the other an infinity, then return an element of :math:`\nans_N\{\}`.
 
 * Else if both :math:`z_1` and :math:`z_2` are infinities of equal sign, then return positive infinity.
 
@@ -875,7 +889,7 @@ This non-deterministic result is expressed by the following auxiliary function p
 
 * If either :math:`z_1` or :math:`z_2` is a NaN, then return an element of :math:`\nans_N\{z_1, z_2\}`.
 
-* Else if both :math:`z_1` and :math:`z_2` are infinities, then return an element of :math:`\nans_N\{z_1, z_2\}`.
+* Else if both :math:`z_1` and :math:`z_2` are infinities, then return an element of :math:`\nans_N\{\}`.
 
 * Else if both :math:`z_1` and :math:`z_2` are zeroes, then return an element of :math:`\nans_N\{z_1, z_2\}`.
 
@@ -895,7 +909,7 @@ This non-deterministic result is expressed by the following auxiliary function p
 
 * Else if :math:`z_2` is a zero and :math:`z_1` a value with opposite sign, then return negative infinity.
 
-* Else return the result of dividing :math:`z_2` by :math:`z_1`, :ref:`rounded <aux-ieee>` to the nearest representable value.
+* Else return the result of dividing :math:`z_1` by :math:`z_2`, :ref:`rounded <aux-ieee>` to the nearest representable value.
 
 .. math::
    \begin{array}{@{}lcll}
@@ -1044,7 +1058,7 @@ This non-deterministic result is expressed by the following auxiliary function p
 
 * If :math:`z` is a NaN, then return an element of :math:`\nans_N\{z\}`.
 
-* Else if :math:`z` has a negative sign, then return an element of :math:`\nans_N\{z\}`.
+* Else if :math:`z` has a negative sign, then return an element of :math:`\nans_N\{\}`.
 
 * Else if :math:`z` is positive infinity, then return positive infinity.
 
@@ -1197,7 +1211,7 @@ This non-deterministic result is expressed by the following auxiliary function p
 :math:`\fne_N(z_1, z_2)`
 ........................
 
-* If either :math:`z_1` or :math:`z_2` is a NaN, then return :math:`0`.
+* If either :math:`z_1` or :math:`z_2` is a NaN, then return :math:`1`.
 
 * Else if both :math:`z_1` and :math:`z_2` are zeroes, then return :math:`0`.
 
@@ -1207,8 +1221,8 @@ This non-deterministic result is expressed by the following auxiliary function p
 
 .. math::
    \begin{array}{@{}lcll}
-   \fne_N(\pm \NAN(n), z_2) &=& 0 \\
-   \fne_N(z_1, \pm \NAN(n)) &=& 0 \\
+   \fne_N(\pm \NAN(n), z_2) &=& 1 \\
+   \fne_N(z_1, \pm \NAN(n)) &=& 1 \\
    \fne_N(\pm 0, \mp 0) &=& 0 \\
    \fne_N(z_1, z_2) &=& \bool(z_1 \neq z_2) \\
    \end{array}
@@ -1463,6 +1477,62 @@ Conversions
    It is not defined for NaNs, infinities, or values for which the result is out of range.
 
 
+.. _op-trunc_u_sat:
+
+:math:`\truncusat_{M,N}(z)`
+...........................
+
+* If :math:`z` is a NaN, then return :math:`0`.
+
+* Else if :math:`z` is negative infinity, then return :math:`0`.
+
+* Else if :math:`z` is positive infinity, then return :math:`2^N - 1`.
+
+* Else if :math:`\trunc(z)` is less than :math:`0`, then return :math:`0`.
+
+* Else if :math:`\trunc(z)` is greater than :math:`2^N - 1`, then return :math:`2^N - 1`.
+
+* Else, return :math:`\trunc(z)`.
+
+.. math::
+   \begin{array}{lll@{\qquad}l}
+   \truncusat_{M,N}(\pm \NAN(n)) &=& 0 \\
+   \truncusat_{M,N}(- \infty) &=& 0 \\
+   \truncusat_{M,N}(+ \infty) &=& 2^N - 1 \\
+   \truncusat_{M,N}(- q) &=& 0 & (\iff \trunc(- q) < 0) \\
+   \truncusat_{M,N}(+ q) &=& 2^N - 1 & (\iff \trunc(+ q) > 2^N - 1) \\
+   \truncusat_{M,N}(\pm q) &=& \trunc(\pm q) & (otherwise) \\
+   \end{array}
+
+
+.. _op-trunc_s_sat:
+
+:math:`\truncssat_{M,N}(z)`
+...........................
+
+* If :math:`z` is a NaN, then return :math:`0`.
+
+* Else if :math:`z` is negative infinity, then return :math:`-2^{N-1}`.
+
+* Else if :math:`z` is positive infinity, then return :math:`2^{N-1} - 1`.
+
+* Else if :math:`\trunc(z)` is less than :math:`-2^{N-1}`, then return :math:`-2^{N-1}`.
+
+* Else if :math:`\trunc(z)` is greater than :math:`2^{N-1} - 1`, then return :math:`2^{N-1} - 1`.
+
+* Else, return :math:`\trunc(z)`.
+
+.. math::
+   \begin{array}{lll@{\qquad}l}
+   \truncssat_{M,N}(\pm \NAN(n)) &=& 0 \\
+   \truncssat_{M,N}(- \infty) &=& -2^{N-1} \\
+   \truncssat_{M,N}(+ \infty) &=& 2^{N-1}-1 \\
+   \truncssat_{M,N}(- q) &=& -2^{N-1} & (\iff \trunc(- q) < -2^{N-1}) \\
+   \truncssat_{M,N}(+ q) &=& 2^{N-1} - 1 & (\iff \trunc(+ q) > 2^{N-1} - 1) \\
+   \truncssat_{M,N}(\pm q) &=& \trunc(\pm q) & (otherwise) \\
+   \end{array}
+
+
 .. _op-promote:
 
 :math:`\promote_{M,N}(z)`
@@ -1470,7 +1540,7 @@ Conversions
 
 * If :math:`z` is a :ref:`canonical NaN <canonical-nan>`, then return an element of :math:`\nans_N\{\}` (i.e., a canonical NaN of size :math:`N`).
 
-* Else if :math:`z` is a NaN, then return an element of :math:`\nans_N\{\pm \NAN(1)\}` (i.e., any NaN of size :math:`N`).
+* Else if :math:`z` is a NaN, then return an element of :math:`\nans_N\{\pm \NAN(1)\}` (i.e., any :ref:`arithmetic NaN <arithmetic-nan>` of size :math:`N`).
 
 * Else, return :math:`z`.
 
