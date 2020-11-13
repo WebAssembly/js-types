@@ -662,7 +662,7 @@ interface Memory {
   unsigned long grow([EnforceRange] unsigned long delta);
   readonly attribute ArrayBuffer buffer;
 
-  static MemoryType type(Memory memory);
+  MemoryType type();
 };
 </pre>
 
@@ -801,7 +801,7 @@ interface Table {
   void set([EnforceRange] unsigned long index, Function? value);
   readonly attribute unsigned long length;
 
-  static TableType type(Table table);
+  TableType type();
 };
 </pre>
 
@@ -928,7 +928,7 @@ interface Global {
   any valueOf();
   attribute any value;
 
-  static GlobalType type(Global global);
+  GlobalType type();
 };
 </pre>
 

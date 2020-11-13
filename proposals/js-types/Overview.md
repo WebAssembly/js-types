@@ -95,7 +95,7 @@ Note: The last two points are simply a backwards compatibility measure that enab
 
 ## Extensions to API functions
 
-Types can be queried by adding the following attributes to the API.
+Types can be queried by adding the following methods to the API.
 
 * Make [ModuleExportDescriptor](https://webassembly.github.io/spec/js-api/index.html#modules) and [ModuleImportDescriptor](https://webassembly.github.io/spec/js-api/index.html#modules) derive from `ExternType`:
   ```WebIDL
@@ -106,20 +106,18 @@ Types can be queried by adding the following attributes to the API.
 
 * Extend interface [Memory](https://webassembly.github.io/spec/js-api/index.html#memories) with attribute
   ```WebIDL
-  static MemoryType type(Memory memory);
+  MemoryType type();
   ```
 
 * Extend interface [Table](https://webassembly.github.io/spec/js-api/index.html#tables) with attribute
   ```WebIDL
-  static TableType type(Table table);
+  TableType type();
   ```
 
 * Extend interface [Global](https://github.com/WebAssembly/mutable-global/blob/master/proposals/mutable-global/Overview.md#webassemblyglobal-objects) with
   ```WebIDL
-  static GlobalType type(Global global);
+  GlobalType type();
   ```
-
-  Note: Following existing practice of JavaScript's `Object` API as well as the existing reflection functions on `WebAssembly.Module`, the above `type` methods are provided as static functions instead of attributes.
 
 * Overload constructor [Memory](https://webassembly.github.io/spec/js-api/index.html#memories) (see above)
   ```WebIDL
@@ -155,7 +153,7 @@ Concretely, the change is the following:
   ```WebIDL
   [LegacyNamespace=WebAssembly, Constructor(FunctionType type, function func), Exposed=(Window,Worker,Worklet)]
   interface Function : global.Function {
-    static FunctionType type(Function func);
+    FunctionType type();
   };
   ```
 
