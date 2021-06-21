@@ -121,17 +121,17 @@ Types can be queried by adding the following methods to the API.
 
 * Overload constructor [Memory](https://webassembly.github.io/spec/js-api/index.html#memories) (see above)
   ```WebIDL
-  Constructor(MemoryType or InitialMemoryType type)
+  constructor(MemoryType or InitialMemoryType type);
   ```
 
 * Overload constructor [Table](https://webassembly.github.io/spec/js-api/index.html#tables) (see above)
   ```WebIDL
-  Constructor(TableType or InitialTableType type)
+  constructor(TableType or InitialTableType type);
   ```
 
 * Adjust constructor [Global](https://github.com/WebAssembly/mutable-global/blob/master/proposals/mutable-global/Overview.md#webassemblyglobal-objects) to accept a GlobalType and its initialisation value separately:
   ```WebIDL
-  Constructor(GlobalType type, any value)
+  constructor(GlobalType type, any value);
   ```
 
 
@@ -151,8 +151,9 @@ Concretely, the change is the following:
 
 * Introduce a new class `WebAssembly.Function` that is a subclass of `Function` as follows
   ```WebIDL
-  [LegacyNamespace=WebAssembly, Constructor(FunctionType type, function func), Exposed=(Window,Worker,Worklet)]
+  [LegacyNamespace=WebAssembly, Exposed=(Window,Worker,Worklet)]
   interface Function : global.Function {
+    constructor(FunctionType type, function func);
     FunctionType type();
   };
   ```
