@@ -145,6 +145,8 @@ This part of the proposal refines Wasm exported functions to have a suitable sub
 
 * The constructor for this class can be used to explicitly construct Wasm exported functions, closing a gap in the current API in that does not provide a way for JavaScript to put a plain JS function into a table (while the same is possible from inside Wasm).
 
+  * The constructor should not allow for passing a `WebAssembly.Function` object in, in such situations a `TypeError` should be raised.
+
 * Wasm exported functions can be identified programmatically with an `instanceof` check.
 
 Concretely, the change is the following:
@@ -160,6 +162,8 @@ Concretely, the change is the following:
 * All exported functions are of class `WebAssembly.Function`.
 
 * Functions constructed by `WebAssembly.Function` behave no different from other exported functions taken from a module's exports. More specifically, they have a [[FunctionAddress]] internal slot which identifies them as exported functions.
+
+* Calls to the function should work the same way as [calling an exported function](https://webassembly.github.io/spec/js-api/index.html#call-an-exported-function) currently works.
 
 
 ## Example
