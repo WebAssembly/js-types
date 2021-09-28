@@ -777,10 +777,10 @@ Immediately after a WebAssembly [=memory.grow=] instruction executes, perform th
 
 <div algorithm>
 
-The <dfn method for="Memory">type(|memory|)</dfn> method steps are:
+The <dfn method for="Memory">type()</dfn> method steps are:
 
 1. Let |store| be the [=surrounding agent=]'s [=associated store=].
-1. Let |memaddr| be |memory|.\[[Memory]].
+1. Let |memaddr| be **this**.\[[Memory]].
 1. Let { min |minimum|, max |maximum| } be [=mem_type=](|store|, |memaddr|).
 1. Let |type| be «[ "{{MemoryType/minimum}}" → |minimum| ]».
 1. If |maximum| is not empty,
@@ -929,10 +929,10 @@ The algorithm <dfn abstract-op>ToTableKind</dfn>(|t|) performs the following ste
 
 <div algorithm>
 
-The <dfn method for="Table">type(|table|)</dfn> method steps are:
+The <dfn method for="Table">type()</dfn> method steps are:
 
 1. Let |store| be the [=surrounding agent=]'s [=associated store=].
-1. Let |tableaddr| be |table|.\[[Table]].
+1. Let |tableaddr| be **this**.\[[Table]].
 1. Let ({ min |minimum|, max |maximum| }, |elementType|) be [=table_type=](|store|, |tableaddr|).
 1. Let |type| be «[ "{{TableType/element}}" → [$ToTableKind$](|elementType|), "{{TableType/minimum}}" → |minimum| ]».
 1. If |maximum| is not empty,
@@ -1077,10 +1077,10 @@ The algorithm <dfn abstract-op>FromValueType</dfn>(|s|) performs the following s
 
 <div algorithm>
 
-The <dfn method for="Global">type(|global|)</dfn> method steps are:
+The <dfn method for="Global">type()</dfn> method steps are:
 
 1. Let |store| be the [=surrounding agent=]'s [=associated store=].
-1. Let |globaladdr| be |global|.\[[Global]].
+1. Let |globaladdr| be **this**.\[[Global]].
 1. Let |mut| |valuetype| be [=global_type=](|store|, |globaladdr|).
 1. Return «[ "{{GlobalType/mutable}}" → |mut|, "{{GlobalType/value}}" → [$FromValueType$](|valuetype|) ]».
 
