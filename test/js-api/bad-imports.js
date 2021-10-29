@@ -167,7 +167,7 @@ function test_bad_imports(t) {
     [WebAssembly.Table, "WebAssembly.Table"],
     [WebAssembly.Table.prototype, "WebAssembly.Table.prototype"],
     [Object.create(WebAssembly.Table.prototype), "Object.create(WebAssembly.Table.prototype)"],
-    [new WebAssembly.Table({"element": "funcref", "initial": 256}), "WebAssembly.Table object (too large)"],
+    [new WebAssembly.Table({"element": "anyfunc", "initial": 256}), "WebAssembly.Table object (too large)"],
   ];
 
   for (const [value, name = format_value(value)] of nonTables) {

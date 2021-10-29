@@ -30,7 +30,7 @@ test(() => {
 
 test(() => {
   class _Table extends WebAssembly.Table {}
-  let table = new _Table({initial: 0, element: "funcref"});
+  let table = new _Table({initial: 0, element: "anyfunc"});
   assert_true(table instanceof _Table, "_Table instanceof _Table");
   assert_true(table instanceof WebAssembly.Table, "_Table instanceof WebAssembly.Table");
 }, "_Table");

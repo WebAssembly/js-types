@@ -794,7 +794,7 @@ The <dfn method for="Memory">type()</dfn> method steps are:
 <pre class="idl">
 enum TableKind {
   "externref",
-  "funcref",
+  "anyfunc",
   // Note: More values may be added in future iterations,
   // e.g., typed function references, typed GC references
 };
@@ -848,7 +848,7 @@ Each {{Table}} object has a \[[Table]] internal slot, which is a [=table address
 
 The algorithm <dfn abstract-op>ToTableKind</dfn>(|t|) performs the following steps:
 
-1. If |t| equals [=funcref=], return "{{TableKind/funcref}}".
+1. If |t| equals [=funcref=], return "{{TableKind/anyfunc}}".
 1. If |t| equals [=externref=], return "{{TableKind/externref}}".
 1. Assert: This step is not reached.
 
