@@ -25,7 +25,7 @@ test(() => {
 }, "No arguments");
 
 test(() => {
-  const argument = { "element": "anyfunc", "initial": 0 };
+  const argument = { "element": "funcref", "initial": 0 };
   assert_throws_js(TypeError, () => WebAssembly.Table(argument));
 }, "Calling");
 
@@ -54,7 +54,7 @@ test(() => {
 }, "Invalid descriptor argument");
 
 test(() => {
-  assert_throws_js(TypeError, () => new WebAssembly.Table({ "element": "anyfunc", "initial": undefined }));
+  assert_throws_js(TypeError, () => new WebAssembly.Table({ "element": "funcref", "initial": undefined }));
 }, "Undefined initial value in descriptor");
 
 test(() => {
@@ -72,20 +72,20 @@ const outOfRangeValues = [
 
 for (const value of outOfRangeValues) {
   test(() => {
-    assert_throws_js(TypeError, () => new WebAssembly.Table({ "element": "anyfunc", "initial": value }));
+    assert_throws_js(TypeError, () => new WebAssembly.Table({ "element": "funcref", "initial": value }));
   }, `Out-of-range initial value in descriptor: ${format_value(value)}`);
 
   test(() => {
-    assert_throws_js(TypeError, () => new WebAssembly.Table({ "element": "anyfunc", "initial": 0, "maximum": value }));
+    assert_throws_js(TypeError, () => new WebAssembly.Table({ "element": "funcref", "initial": 0, "maximum": value }));
   }, `Out-of-range maximum value in descriptor: ${format_value(value)}`);
 }
 
 test(() => {
-  assert_throws_js(RangeError, () => new WebAssembly.Table({ "element": "anyfunc", "initial": 10, "maximum": 9 }));
+  assert_throws_js(RangeError, () => new WebAssembly.Table({ "element": "funcref", "initial": 10, "maximum": 9 }));
 }, "Initial value exceeds maximum");
 
 test(() => {
-  const argument = { "element": "anyfunc", "initial": 0 };
+  const argument = { "element": "funcref", "initial": 0 };
   const table = new WebAssembly.Table(argument);
   assert_Table(table, { "length": 0 });
 }, "Basic (zero)");
@@ -103,7 +103,7 @@ test(() => {
 }, "Basic with 'funcref'");
 
 test(() => {
-  const argument = { "element": "anyfunc", "initial": 0 };
+  const argument = { "element": "funcref", "initial": 0 };
   const table = new WebAssembly.Table(argument, {});
   assert_Table(table, { "length": 0 });
 }, "Stray argument");
@@ -116,7 +116,7 @@ test(() => {
     get(o, x) {
       switch (x) {
       case "element":
-        return "anyfunc";
+        return "funcref";
       case "initial":
       case "maximum":
         return 0;
@@ -132,7 +132,7 @@ test(() => {
 test(() => {
   const table = new WebAssembly.Table({
     "element": {
-      toString() { return "anyfunc"; },
+      toString() { return "funcref"; },
     },
     "initial": 1,
   });
@@ -168,7 +168,7 @@ test(() => {
       return {
         toString() {
           order.push("element toString");
-          return "anyfunc";
+          return "funcref";
         },
       };
     },

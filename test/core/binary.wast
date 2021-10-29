@@ -1407,7 +1407,7 @@
   (module binary
       "\00asm" "\01\00\00\00"
       "\05\03\01"                           ;; table section with one entry
-      "\70"                                 ;; anyfunc
+      "\70"                                 ;; funcref
       "\02"                                 ;; malformed table limits flag
   )
   "integer too large"
@@ -1416,7 +1416,7 @@
   (module binary
       "\00asm" "\01\00\00\00"
       "\05\04\01"                           ;; table section with one entry
-      "\70"                                 ;; anyfunc
+      "\70"                                 ;; funcref
       "\02"                                 ;; malformed table limits flag
       "\00"                                 ;; dummy byte
   )
@@ -1426,7 +1426,7 @@
   (module binary
       "\00asm" "\01\00\00\00"
       "\05\06\01"                           ;; table section with one entry
-      "\70"                                 ;; anyfunc
+      "\70"                                 ;; funcref
       "\81\00"                              ;; malformed table limits flag as LEB128
       "\00\00"                              ;; dummy bytes
   )

@@ -236,10 +236,10 @@ test(() => {
   assert_throws(
       new RangeError(),
       () => new WebAssembly.Table(
-          {element : "anyfunc", initial : kJSEmbeddingMaxTableSize + 1}));
+          {element : "funcref", initial : kJSEmbeddingMaxTableSize + 1}));
 
   let memory = new WebAssembly.Table(
-      {initial : 1, maximum : kJSEmbeddingMaxTableSize + 1, element: "anyfunc"});
+      {initial : 1, maximum : kJSEmbeddingMaxTableSize + 1, element: "funcref"});
   assert_throws(new RangeError(),
                 () => memory.grow(kJSEmbeddingMaxTableSize));
 }, `Grow WebAssembly.Table object beyond the embedder-defined limit`);
