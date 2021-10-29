@@ -32,7 +32,7 @@ All Wasm types can be defined by a simple grammar. This grammar could be mapped 
 
 ```TypeScript
 type ValueType = "i32" | "i64" | "f32" | "f64"
-type ElemType = "anyfunc"
+type ElemType = "funcref"
 type GlobalType = {value: ValueType, mutable: boolean}
 type MemoryType = {limits: Limits}
 type TableType = {limits: Limits, element: ElemType}
@@ -200,7 +200,7 @@ function print(...args) {
   for (let x of args) console.log(x + "\n")
 }
 
-let table = new Table({element: "anyfunc", minimum: 10});
+let table = new Table({element: "funcref", minimum: 10});
 
 let print_i32 = new WebAssembly.Function({parameters: ["i32"], results: []}, print);
 table.set(0, print_i32);
