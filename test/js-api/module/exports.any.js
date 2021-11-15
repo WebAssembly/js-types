@@ -27,8 +27,28 @@ function assert_ModuleExportDescriptor(export_, expected) {
     assert_true(type.writable, 'type: writable');
     assert_true(type.enumerable, 'type: enumerable');
     assert_true(type.configurable, 'type: configurable');
-    assert_array_equals(type.value.parameters, expected.type.parameters);
-    assert_array_equals(type.value.results, expected.type.results);
+
+    if (expected.type.parameters) {
+      assert_array_equals(type.value.parameters, expected.type.parameters);
+    }
+    if (expected.type.results) {
+      assert_array_equals(type.value.results, expected.type.results);
+    }
+    if (expected.type.value) {
+      assert_equals(type.value.value, expected.type.value);
+    }
+    if (expected.type.mutable !== undefined) {
+      assert_equals(type.value.mutable, expected.type.mutable);
+    }
+    if (expected.type.mimimum) {
+      assert_equals(type.value.mimimum, expected.type.mimimum);
+    }
+    if (expected.type.maximum) {
+      assert_equals(type.value.maximum, expected.type.maximum);
+    }
+    if (expected.type.element) {
+      assert_equals(type.value.element, expected.type.element);
+    }
   }
 }
 
@@ -83,6 +103,12 @@ test(() => {
     assert_array_equals(fn.call(thisValue, module), []);
   }
 }, "Branding");
+
+test(() => {
+  const module = new WebAssembly.Module(emptyModuleBinary);
+  const exports = WebAssembly.Module.exports(module);
+  assert_true(Array.isArray(exports));
+}, "Return type");
 
 test(() => {
   const module = new WebAssembly.Module(emptyModuleBinary);
@@ -143,6 +169,54 @@ test(() => {
 }, "exports");
 
 test(() => {
+  const builder = new WasmModuleBuilder();
+
+  builder
+    .addFunction("", kSig_v_v)
+    .addBody([])
+    .exportFunc();
+
+  const buffer = builder.toBuffer()
+  const module = new WebAssembly.Module(buffer);
+  const exports = WebAssembly.Module.exports(module);
+  const expected = [
+    {'kind': 'function', 'name': '', 'type': {'parameters': [], 'results': []}},
+  ];
+  assert_exports(exports, expected);
+}, "exports with empty name: function");
+
+test(() => {
+  const builder = new WasmModuleBuilder();
+
+  builder.setTableBounds(1);
+  builder.addExportOfKind("", kExternalTable, 0);
+
+  const buffer = builder.toBuffer()
+  const module = new WebAssembly.Module(buffer);
+  const exports = WebAssembly.Module.exports(module);
+  const expected = [
+    { "kind": "table", "name": "" },
+  ];
+  assert_exports(exports, expected);
+}, "exports with empty name: table");
+
+test(() => {
+  const builder = new WasmModuleBuilder();
+
+  builder.addGlobal(kWasmI32, true)
+    .exportAs("")
+    .init = 7;
+
+  const buffer = builder.toBuffer()
+  const module = new WebAssembly.Module(buffer);
+  const exports = WebAssembly.Module.exports(module);
+  const expected = [
+    { "kind": "global", "name": "" },
+  ];
+  assert_exports(exports, expected);
+}, "exports with empty name: global");
+
+test(() => {
   const module = new WebAssembly.Module(emptyModuleBinary);
   const exports = WebAssembly.Module.exports(module, {});
   assert_exports(exports, []);
@@ -156,7 +230,13 @@ test(() => {
     .addBody([kExprLocalGet, 0])
     .exportFunc();
 
-  const buffer = builder.toBuffer()
+  builder.addTable(kWasmAnyFunc, 10, 100);
+  builder.addExportOfKind("table", kExternalTable, 0);
+
+  builder.addGlobal(kWasmAnyFunc, true)
+    .exportAs("global").function_index = 0;
+
+  const buffer = builder.toBuffer();
   const module = new WebAssembly.Module(buffer);
   const exports = WebAssembly.Module.exports(module);
   const expected = [
@@ -165,6 +245,17 @@ test(() => {
       'name': 'fn',
       'type': {'parameters': ['funcref'], 'results': ['funcref']}
     },
+    {
+      'kind': 'table',
+      'name': 'table',
+      'type': {'minimum': 10, 'maximum': 100, 'element': 'funcref'}
+    },
+    {
+      'kind': 'global',
+      'name': 'global',
+      'type': {'value': 'funcref', 'mutable': true}
+    },
   ];
   assert_exports(exports, expected);
-}, "export function with funcref parameter and result");
+}, "exports with type funcref");
+

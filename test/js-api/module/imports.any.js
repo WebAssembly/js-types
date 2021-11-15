@@ -28,8 +28,27 @@ function assert_ModuleImportDescriptor(import_, expected) {
     assert_true(type.writable, 'type: writable');
     assert_true(type.enumerable, 'type: enumerable');
     assert_true(type.configurable, 'type: configurable');
-    assert_array_equals(type.value.parameters, expected.type.parameters);
-    assert_array_equals(type.value.results, expected.type.results);
+    if (expected.type.parameters) {
+      assert_array_equals(type.value.parameters, expected.type.parameters);
+    }
+    if (expected.type.results) {
+      assert_array_equals(type.value.results, expected.type.results);
+    }
+    if (expected.type.value) {
+      assert_equals(type.value.value, expected.type.value);
+    }
+    if (expected.type.mutable !== undefined) {
+      assert_equals(type.value.mutable, expected.type.mutable);
+    }
+    if (expected.type.mimimum) {
+      assert_equals(type.value.mimimum, expected.type.mimimum);
+    }
+    if (expected.type.maximum) {
+      assert_equals(type.value.maximum, expected.type.maximum);
+    }
+    if (expected.type.element) {
+      assert_equals(type.value.element, expected.type.element);
+    }
   }
 }
 
@@ -125,12 +144,87 @@ test(() => {
       'name': 'fn',
       'type': {'parameters': [], 'results': []}
     },
-    {'module': 'module', 'kind': 'global', 'name': 'global'},
+    {'module': 'module', 'kind': 'global', 'name': 'global', 'value': 'i32'},
     {'module': 'module', 'kind': 'memory', 'name': 'memory'},
     {'module': 'module', 'kind': 'table', 'name': 'table'},
   ];
   assert_imports(imports, expected);
 }, "imports");
+
+test(() => {
+  const builder = new WasmModuleBuilder();
+
+  builder.addImport("", "fn", kSig_v_v);
+  builder.addImportedGlobal("", "global", kWasmI32);
+  builder.addImportedMemory("", "memory", 0, 128);
+  builder.addImportedTable("", "table", 0, 128);
+
+  const buffer = builder.toBuffer()
+  const module = new WebAssembly.Module(buffer);
+  const imports = WebAssembly.Module.imports(module);
+  const expected = [
+    {
+      'module': '',
+      'kind': 'function',
+      'name': 'fn',
+      'type': {'parameters': [], 'results': []}
+    },
+    {'module': '', 'kind': 'global', 'name': 'global', 'value': 'i32'},
+    {'module': '', 'kind': 'memory', 'name': 'memory'},
+    {'module': '', 'kind': 'table', 'name': 'table'},
+  ];
+  assert_imports(imports, expected);
+}, "imports with empty module name");
+
+test(() => {
+  const builder = new WasmModuleBuilder();
+
+  builder.addImport("a", "", kSig_v_v);
+  builder.addImportedGlobal("b", "", kWasmI32);
+  builder.addImportedMemory("c", "", 0, 128);
+  builder.addImportedTable("d", "", 0, 128);
+
+  const buffer = builder.toBuffer()
+  const module = new WebAssembly.Module(buffer);
+  const imports = WebAssembly.Module.imports(module);
+  const expected = [
+    {
+      'module': 'a',
+      'kind': 'function',
+      'name': '',
+      'type': {'parameters': [], 'results': []}
+    },
+    {'module': 'b', 'kind': 'global', 'name': '', 'value': 'i32'},
+    {'module': 'c', 'kind': 'memory', 'name': ''},
+    {'module': 'd', 'kind': 'table', 'name': ''},
+  ];
+  assert_imports(imports, expected);
+}, "imports with empty names");
+
+test(() => {
+  const builder = new WasmModuleBuilder();
+
+  builder.addImport("", "", kSig_v_v);
+  builder.addImportedGlobal("", "", kWasmI32);
+  builder.addImportedMemory("", "", 0, 128);
+  builder.addImportedTable("", "", 0, 128);
+
+  const buffer = builder.toBuffer()
+  const module = new WebAssembly.Module(buffer);
+  const imports = WebAssembly.Module.imports(module);
+  const expected = [
+    {
+      'module': '',
+      'kind': 'function',
+      'name': '',
+      'type': {'parameters': [], 'results': []}
+    },
+    {'module': '', 'kind': 'global', 'name': '', 'value': 'i32'},
+    {'module': '', 'kind': 'memory', 'name': ''},
+    {'module': '', 'kind': 'table', 'name': ''},
+  ];
+  assert_imports(imports, expected);
+}, "imports with empty module names and names");
 
 test(() => {
   const module = new WebAssembly.Module(emptyModuleBinary);
@@ -141,6 +235,8 @@ test(() => {
 test(() => {
   const builder = new WasmModuleBuilder();
   builder.addImport("module", "fn", kSig_a_a);
+  builder.addImportedGlobal("module", "g", kWasmAnyFunc);
+  builder.addImportedTable("module", "t", 0, 128);
 
   const buffer = builder.toBuffer()
   const module = new WebAssembly.Module(buffer);
@@ -152,6 +248,18 @@ test(() => {
       'name': 'fn',
       'type': {'parameters': ['funcref'], 'results': ['funcref']}
     },
+    {
+      'module': 'module',
+      'kind': 'global',
+      'name': 'g',
+      'type': {'value': 'funcref', 'mutable': false}
+    },
+    {
+      'module': 'module',
+      'kind': 'table',
+      'name': 't',
+      'type': {'minimum': 0, 'maximum': 128, 'element': 'funcref'}
+    },
   ];
   assert_imports(imports, expected);
-}, "import function with funcref parameter and result");
+}, "imports with type funcref");
