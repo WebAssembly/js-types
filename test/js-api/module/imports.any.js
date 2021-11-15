@@ -22,6 +22,15 @@ function assert_ModuleImportDescriptor(import_, expected) {
   assert_true(kind.enumerable, "kind: enumerable");
   assert_true(kind.configurable, "kind: configurable");
   assert_equals(kind.value, expected.kind);
+
+  if (expected.type) {
+    const type = Object.getOwnPropertyDescriptor(import_, 'type');
+    assert_true(type.writable, 'type: writable');
+    assert_true(type.enumerable, 'type: enumerable');
+    assert_true(type.configurable, 'type: configurable');
+    assert_array_equals(type.value.parameters, expected.type.parameters);
+    assert_array_equals(type.value.results, expected.type.results);
+  }
 }
 
 function assert_imports(imports, expected) {
@@ -110,10 +119,15 @@ test(() => {
   const module = new WebAssembly.Module(buffer);
   const imports = WebAssembly.Module.imports(module);
   const expected = [
-    { "module": "module", "kind": "function", "name": "fn" },
-    { "module": "module", "kind": "global", "name": "global" },
-    { "module": "module", "kind": "memory", "name": "memory" },
-    { "module": "module", "kind": "table", "name": "table" },
+    {
+      'module': 'module',
+      'kind': 'function',
+      'name': 'fn',
+      'type': {'parameters': [], 'results': []}
+    },
+    {'module': 'module', 'kind': 'global', 'name': 'global'},
+    {'module': 'module', 'kind': 'memory', 'name': 'memory'},
+    {'module': 'module', 'kind': 'table', 'name': 'table'},
   ];
   assert_imports(imports, expected);
 }, "imports");
@@ -123,3 +137,21 @@ test(() => {
   const imports = WebAssembly.Module.imports(module, {});
   assert_imports(imports, []);
 }, "Stray argument");
+
+test(() => {
+  const builder = new WasmModuleBuilder();
+  builder.addImport("module", "fn", kSig_a_a);
+
+  const buffer = builder.toBuffer()
+  const module = new WebAssembly.Module(buffer);
+  const imports = WebAssembly.Module.imports(module);
+  const expected = [
+    {
+      'kind': 'function',
+      'module': 'module',
+      'name': 'fn',
+      'type': {'parameters': ['funcref'], 'results': ['funcref']}
+    },
+  ];
+  assert_imports(imports, expected);
+}, "import function with funcref parameter and result");

@@ -21,6 +21,15 @@ function assert_ModuleExportDescriptor(export_, expected) {
   assert_true(kind.enumerable, "kind: enumerable");
   assert_true(kind.configurable, "kind: configurable");
   assert_equals(kind.value, expected.kind);
+
+  if (expected.type) {
+    const type = Object.getOwnPropertyDescriptor(export_, 'type');
+    assert_true(type.writable, 'type: writable');
+    assert_true(type.enumerable, 'type: enumerable');
+    assert_true(type.configurable, 'type: configurable');
+    assert_array_equals(type.value.parameters, expected.type.parameters);
+    assert_array_equals(type.value.results, expected.type.results);
+  }
 }
 
 function assert_exports(exports, expected) {
@@ -83,7 +92,8 @@ test(() => {
 
 test(() => {
   const module = new WebAssembly.Module(emptyModuleBinary);
-  assert_not_equals(WebAssembly.Module.exports(module), WebAssembly.Module.exports(module));
+  assert_not_equals(
+      WebAssembly.Module.exports(module), WebAssembly.Module.exports(module));
 }, "Empty module: array caching");
 
 test(() => {
@@ -114,12 +124,20 @@ test(() => {
   const module = new WebAssembly.Module(buffer);
   const exports = WebAssembly.Module.exports(module);
   const expected = [
-    { "kind": "function", "name": "fn" },
-    { "kind": "function", "name": "fn2" },
-    { "kind": "table", "name": "table" },
-    { "kind": "global", "name": "global" },
-    { "kind": "global", "name": "global2" },
-    { "kind": "memory", "name": "memory" },
+    {
+      'kind': 'function',
+      'name': 'fn',
+      'type': {'parameters': [], 'results': []}
+    },
+    {
+      'kind': 'function',
+      'name': 'fn2',
+      'type': {'parameters': [], 'results': []}
+    },
+    {'kind': 'table', 'name': 'table'},
+    {'kind': 'global', 'name': 'global'},
+    {'kind': 'global', 'name': 'global2'},
+    {'kind': 'memory', 'name': 'memory'},
   ];
   assert_exports(exports, expected);
 }, "exports");
@@ -129,3 +147,24 @@ test(() => {
   const exports = WebAssembly.Module.exports(module, {});
   assert_exports(exports, []);
 }, "Stray argument");
+
+test(() => {
+  const builder = new WasmModuleBuilder();
+
+  builder
+    .addFunction("fn", kSig_a_a)
+    .addBody([kExprLocalGet, 0])
+    .exportFunc();
+
+  const buffer = builder.toBuffer()
+  const module = new WebAssembly.Module(buffer);
+  const exports = WebAssembly.Module.exports(module);
+  const expected = [
+    {
+      'kind': 'function',
+      'name': 'fn',
+      'type': {'parameters': ['funcref'], 'results': ['funcref']}
+    },
+  ];
+  assert_exports(exports, expected);
+}, "export function with funcref parameter and result");
