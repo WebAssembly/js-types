@@ -952,6 +952,7 @@ enum ValueType {
   "f64",
   "externref",
   "funcref",
+  "anyfunc",
 };
 </pre>
 
