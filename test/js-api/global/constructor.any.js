@@ -176,3 +176,8 @@ test(() => {
   const global = new WebAssembly.Global(argument);
   assert_Global(global, null);
 }, "funcref with default");
+
+test(() => {
+  const argument = { "value": "v128" };
+  assert_throws_js(TypeError, () =>new WebAssembly.Global(argument));
+}, "Construct v128 global");
