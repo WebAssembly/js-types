@@ -97,6 +97,12 @@ test(() => {
 }, "Basic (non-zero)");
 
 test(() => {
+  const argument = { "element": "funcref", "initial": 5 };
+  const table = new WebAssembly.Table(argument);
+  assert_Table(table, { "length": 5 });
+}, "Basic with 'funcref'");
+
+test(() => {
   const argument = { "element": "anyfunc", "initial": 0 };
   const table = new WebAssembly.Table(argument, {});
   assert_Table(table, { "length": 0 });

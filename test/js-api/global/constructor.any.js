@@ -164,3 +164,15 @@ test(() => {
   const global = new WebAssembly.Global(argument, 0, {});
   assert_Global(global, 0);
 }, "Stray argument");
+
+test(() => {
+  const argument = { "value": "anyfunc" };
+  const global = new WebAssembly.Global(argument);
+  assert_Global(global, null);
+}, "funcref with default");
+
+test(() => {
+  const argument = { "value": "funcref" };
+  const global = new WebAssembly.Global(argument);
+  assert_Global(global, null);
+}, "funcref with default");

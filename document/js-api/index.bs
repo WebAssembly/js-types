@@ -795,6 +795,7 @@ The <dfn method for="Memory">type()</dfn> method steps are:
 enum TableKind {
   "externref",
   "anyfunc",
+  "funcref",
   // Note: More values may be added in future iterations,
   // e.g., typed function references, typed GC references
 };
@@ -848,7 +849,7 @@ Each {{Table}} object has a \[[Table]] internal slot, which is a [=table address
 
 The algorithm <dfn abstract-op>ToTableKind</dfn>(|t|) performs the following steps:
 
-1. If |t| equals [=funcref=], return "{{TableKind/anyfunc}}".
+1. If |t| equals [=funcref=], return "{{TableKind/funcref}}".
 1. If |t| equals [=externref=], return "{{TableKind/externref}}".
 1. Assert: This step is not reached.
 
@@ -950,6 +951,7 @@ enum ValueType {
   "f32",
   "f64",
   "externref",
+  "funcref",
   "anyfunc",
 };
 </pre>
@@ -1002,6 +1004,7 @@ which can be simultaneously referenced by multiple {{Instance}} objects. Each
     1. If |s| equals "i64", return [=i64=].
     1. If |s| equals "f32", return [=f32=].
     1. If |s| equals "f64", return [=f64=].
+    1. If |s| equals "funcref", return [=funcref=].
     1. If |s| equals "anyfunc", return [=funcref=].
     1. If |s| equals "externref", return [=externref=].
     1. Assert: This step is not reached.
@@ -1015,7 +1018,7 @@ The algorithm <dfn abstract-op>FromValueType</dfn>(|s|) performs the following s
 1. If |s| equals [=i64=], return "{{ValueType/i64}}".
 1. If |s| equals [=f32=], return "{{ValueType/f32}}".
 1. If |s| equals [=f64=], return "{{ValueType/f64}}".
-1. If |s| equals [=funcref=], return "{{ValueType/anyfunc}}".
+1. If |s| equals [=funcref=], return "{{ValueType/funcref}}".
 1. If |s| equals [=externref=], return "{{ValueType/externref}}".
 1. Assert: This step is not reached.
 

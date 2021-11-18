@@ -21,6 +21,35 @@ function assert_ModuleExportDescriptor(export_, expected) {
   assert_true(kind.enumerable, "kind: enumerable");
   assert_true(kind.configurable, "kind: configurable");
   assert_equals(kind.value, expected.kind);
+
+  if (expected.type) {
+    const type = Object.getOwnPropertyDescriptor(export_, 'type');
+    assert_true(type.writable, 'type: writable');
+    assert_true(type.enumerable, 'type: enumerable');
+    assert_true(type.configurable, 'type: configurable');
+
+    if (expected.type.parameters !== undefined) {
+      assert_array_equals(type.value.parameters, expected.type.parameters);
+    }
+    if (expected.type.results !== undefined) {
+      assert_array_equals(type.value.results, expected.type.results);
+    }
+    if (expected.type.value !== undefined) {
+      assert_equals(type.value.value, expected.type.value);
+    }
+    if (expected.type.mutable !== undefined) {
+      assert_equals(type.value.mutable, expected.type.mutable);
+    }
+    if (expected.type.mimimum !== undefined) {
+      assert_equals(type.value.mimimum, expected.type.mimimum);
+    }
+    if (expected.type.maximum !== undefined) {
+      assert_equals(type.value.maximum, expected.type.maximum);
+    }
+    if (expected.type.element !== undefined) {
+      assert_equals(type.value.element, expected.type.element);
+    }
+  }
 }
 
 function assert_exports(exports, expected) {
@@ -78,12 +107,19 @@ test(() => {
 test(() => {
   const module = new WebAssembly.Module(emptyModuleBinary);
   const exports = WebAssembly.Module.exports(module);
+  assert_true(Array.isArray(exports));
+}, "Return type");
+
+test(() => {
+  const module = new WebAssembly.Module(emptyModuleBinary);
+  const exports = WebAssembly.Module.exports(module);
   assert_exports(exports, []);
 }, "Empty module");
 
 test(() => {
   const module = new WebAssembly.Module(emptyModuleBinary);
-  assert_not_equals(WebAssembly.Module.exports(module), WebAssembly.Module.exports(module));
+  assert_not_equals(
+      WebAssembly.Module.exports(module), WebAssembly.Module.exports(module));
 }, "Empty module: array caching");
 
 test(() => {
@@ -114,18 +150,112 @@ test(() => {
   const module = new WebAssembly.Module(buffer);
   const exports = WebAssembly.Module.exports(module);
   const expected = [
-    { "kind": "function", "name": "fn" },
-    { "kind": "function", "name": "fn2" },
-    { "kind": "table", "name": "table" },
-    { "kind": "global", "name": "global" },
-    { "kind": "global", "name": "global2" },
-    { "kind": "memory", "name": "memory" },
+    {
+      'kind': 'function',
+      'name': 'fn',
+      'type': {'parameters': [], 'results': []}
+    },
+    {
+      'kind': 'function',
+      'name': 'fn2',
+      'type': {'parameters': [], 'results': []}
+    },
+    {'kind': 'table', 'name': 'table'},
+    {'kind': 'global', 'name': 'global'},
+    {'kind': 'global', 'name': 'global2'},
+    {'kind': 'memory', 'name': 'memory'},
   ];
   assert_exports(exports, expected);
 }, "exports");
+
+test(() => {
+  const builder = new WasmModuleBuilder();
+
+  builder
+    .addFunction("", kSig_v_v)
+    .addBody([])
+    .exportFunc();
+
+  const buffer = builder.toBuffer()
+  const module = new WebAssembly.Module(buffer);
+  const exports = WebAssembly.Module.exports(module);
+  const expected = [
+    {'kind': 'function', 'name': '', 'type': {'parameters': [], 'results': []}},
+  ];
+  assert_exports(exports, expected);
+}, "exports with empty name: function");
+
+test(() => {
+  const builder = new WasmModuleBuilder();
+
+  builder.setTableBounds(1);
+  builder.addExportOfKind("", kExternalTable, 0);
+
+  const buffer = builder.toBuffer()
+  const module = new WebAssembly.Module(buffer);
+  const exports = WebAssembly.Module.exports(module);
+  const expected = [
+    { "kind": "table", "name": "" },
+  ];
+  assert_exports(exports, expected);
+}, "exports with empty name: table");
+
+test(() => {
+  const builder = new WasmModuleBuilder();
+
+  builder.addGlobal(kWasmI32, true)
+    .exportAs("")
+    .init = 7;
+
+  const buffer = builder.toBuffer()
+  const module = new WebAssembly.Module(buffer);
+  const exports = WebAssembly.Module.exports(module);
+  const expected = [
+    { "kind": "global", "name": "" },
+  ];
+  assert_exports(exports, expected);
+}, "exports with empty name: global");
 
 test(() => {
   const module = new WebAssembly.Module(emptyModuleBinary);
   const exports = WebAssembly.Module.exports(module, {});
   assert_exports(exports, []);
 }, "Stray argument");
+
+test(() => {
+  const builder = new WasmModuleBuilder();
+
+  builder
+    .addFunction("fn", kSig_a_a)
+    .addBody([kExprLocalGet, 0])
+    .exportFunc();
+
+  builder.addTable(kWasmAnyFunc, 10, 100);
+  builder.addExportOfKind("table", kExternalTable, 0);
+
+  builder.addGlobal(kWasmAnyFunc, true)
+    .exportAs("global").function_index = 0;
+
+  const buffer = builder.toBuffer();
+  const module = new WebAssembly.Module(buffer);
+  const exports = WebAssembly.Module.exports(module);
+  const expected = [
+    {
+      'kind': 'function',
+      'name': 'fn',
+      'type': {'parameters': ['funcref'], 'results': ['funcref']}
+    },
+    {
+      'kind': 'table',
+      'name': 'table',
+      'type': {'minimum': 10, 'maximum': 100, 'element': 'funcref'}
+    },
+    {
+      'kind': 'global',
+      'name': 'global',
+      'type': {'value': 'funcref', 'mutable': true}
+    },
+  ];
+  assert_exports(exports, expected);
+}, "exports with type funcref");
+
