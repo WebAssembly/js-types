@@ -31,22 +31,22 @@ function assert_ModuleImportDescriptor(import_, expected) {
     if (expected.type.parameters) {
       assert_array_equals(type.value.parameters, expected.type.parameters);
     }
-    if (expected.type.results) {
+    if (expected.type.results !== undefined) {
       assert_array_equals(type.value.results, expected.type.results);
     }
-    if (expected.type.value) {
+    if (expected.type.value !== undefined) {
       assert_equals(type.value.value, expected.type.value);
     }
     if (expected.type.mutable !== undefined) {
       assert_equals(type.value.mutable, expected.type.mutable);
     }
-    if (expected.type.mimimum) {
+    if (expected.type.mimimum !== undefined) {
       assert_equals(type.value.mimimum, expected.type.mimimum);
     }
-    if (expected.type.maximum) {
+    if (expected.type.maximum !== undefined) {
       assert_equals(type.value.maximum, expected.type.maximum);
     }
-    if (expected.type.element) {
+    if (expected.type.element !== undefined) {
       assert_equals(type.value.element, expected.type.element);
     }
   }
