@@ -1026,6 +1026,7 @@ The algorithm <dfn abstract-op>FromValueType</dfn>(|s|) performs the following s
 1. If |s| equals [=i64=], return "{{ValueType/i64}}".
 1. If |s| equals [=f32=], return "{{ValueType/f32}}".
 1. If |s| equals [=f64=], return "{{ValueType/f64}}".
+1. If |s| equals [=v128=], return "{{ValueType/v128}}".
 1. If |s| equals [=funcref=], return "{{ValueType/funcref}}".
 1. If |s| equals [=externref=], return "{{ValueType/externref}}".
 1. Assert: This step is not reached.
