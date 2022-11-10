@@ -164,14 +164,15 @@ test(() => {
   const imports = WebAssembly.Module.imports(module);
   const expected = [
     {
-      'module': '',
-      'kind': 'function',
-      'name': 'fn',
-      'type': {'parameters': [], 'results': []}
+      "module": "",
+      "kind": "function",
+      "name": "fn",
+      "type": {"parameters": [], "results": []}
     },
-    {'module': '', 'kind': 'global', 'name': 'global', 'value': 'i32'},
-    {'module': '', 'kind': 'memory', 'name': 'memory'},
-    {'module': '', 'kind': 'table', 'name': 'table'},
+    { "module": "", "kind": "function", "name": "fn" },
+    { "module": "", "kind": "global", "name": "global", "value": "i32" },
+    { "module": "", "kind": "memory", "name": "memory" },
+    { "module": "", "kind": "table", "name": "table" },
   ];
   assert_imports(imports, expected);
 }, "imports with empty module name");
@@ -189,14 +190,14 @@ test(() => {
   const imports = WebAssembly.Module.imports(module);
   const expected = [
     {
-      'module': 'a',
-      'kind': 'function',
-      'name': '',
-      'type': {'parameters': [], 'results': []}
+      "module": "a",
+      "kind": "function",
+      "name": "",
+      "type": {"parameters": [], "results": []}
     },
-    {'module': 'b', 'kind': 'global', 'name': '', 'value': 'i32'},
-    {'module': 'c', 'kind': 'memory', 'name': ''},
-    {'module': 'd', 'kind': 'table', 'name': ''},
+    { "module": "b", "kind": "global", "name": "", "value": "i32" },
+    { "module": "c", "kind": "memory", "name": "" },
+    { "module": "d", "kind": "table", "name": "" },
   ];
   assert_imports(imports, expected);
 }, "imports with empty names");
@@ -214,14 +215,14 @@ test(() => {
   const imports = WebAssembly.Module.imports(module);
   const expected = [
     {
-      'module': '',
-      'kind': 'function',
-      'name': '',
-      'type': {'parameters': [], 'results': []}
+      "module": "",
+      "kind": "function",
+      "name": "",
+      "type": {"parameters": [], "results": []}
     },
-    {'module': '', 'kind': 'global', 'name': '', 'value': 'i32'},
-    {'module': '', 'kind': 'memory', 'name': ''},
-    {'module': '', 'kind': 'table', 'name': ''},
+    { "module": "", "kind": "global", "name": "", "value": "i32" },
+    { "module": "", "kind": "memory", "name": "" },
+    { "module": "", "kind": "table", "name": "" },
   ];
   assert_imports(imports, expected);
 }, "imports with empty module names and names");

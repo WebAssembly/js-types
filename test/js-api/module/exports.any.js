@@ -180,7 +180,7 @@ test(() => {
   const module = new WebAssembly.Module(buffer);
   const exports = WebAssembly.Module.exports(module);
   const expected = [
-    {'kind': 'function', 'name': '', 'type': {'parameters': [], 'results': []}},
+    { "kind": "function", "name": "", "type": {"parameters": [], "results": []}},
   ];
   assert_exports(exports, expected);
 }, "exports with empty name: function");
