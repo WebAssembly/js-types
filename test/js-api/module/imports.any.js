@@ -169,7 +169,6 @@ test(() => {
       "name": "fn",
       "type": {"parameters": [], "results": []}
     },
-    { "module": "", "kind": "function", "name": "fn" },
     { "module": "", "kind": "global", "name": "global", "value": "i32" },
     { "module": "", "kind": "memory", "name": "memory" },
     { "module": "", "kind": "table", "name": "table" },
