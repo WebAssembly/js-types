@@ -31,11 +31,11 @@ The latter also provides a constructor for explicitly creating Wasm exported fun
 All Wasm types can be defined by a simple grammar. This grammar could be mapped to JSON-style JS objects in a direct and extensible manner. For example, using TypeScript-style type definitions:
 
 ```TypeScript
-type ValueType = "i32" | "i64" | "f32" | "f64"
-type ElemType = "funcref"
+type RefType = "funcref" | "externref"
+type ValueType = "i32" | "i64" | "f32" | "f64" | "v128" | RefType
 type GlobalType = {value: ValueType, mutable: boolean}
 type MemoryType = {limits: Limits}
-type TableType = {limits: Limits, element: ElemType}
+type TableType = {limits: Limits, element: RefType}
 type Limits = {min: number, max?: number}  // see below
 type FunctionType = {parameters: ValueType[], results: ValueType[]}
 type ExternType =
