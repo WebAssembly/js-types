@@ -1103,7 +1103,23 @@ The <dfn method for="Global">type()</dfn> method steps are:
 
 </div>
 
-<h3 id="exported-function-exotic-objects">Exported Functions</h3>
+<h3 id="exported-functions">Exported Functions</h3>
+
+<pre class="idl">
+callback JSFunction = any (any... arguments);
+
+dictionary FunctionType {
+  required sequence&lt;ValueType> parameters;
+  required sequence&lt;ValueType> results;
+};
+
+[LegacyNamespace=WebAssembly, Exposed=(Window,Worker,Worklet)]
+interface Function : JSFunction {
+  constructor(FunctionType descriptor, JSFunction callable);
+
+  FunctionType type();
+};
+</pre>
 
 A WebAssembly function is made available in JavaScript as an <dfn>Exported Function</dfn>.
 Exported Functions are [=Built-in Function Objects=] which are not constructors, and which have a \[[FunctionAddress]] internal slot.
@@ -1282,6 +1298,36 @@ The algorithm <dfn>ToWebAssemblyValue</dfn>(|v|, |type|) coerces a JavaScript va
     1. Return [=ref.extern=] |externaddr|.
 1. Assert: This step is not reached.
 
+</div>
+
+<div algorithm>
+
+The <dfn method for="Function">type()</dfn> method steps are:
+
+1. Let |store| be the [=surrounding agent=]'s [=associated store=].
+1. Let |funcaddr| be **this**.\[[Function]].
+1. Let |functype| be [=func_type=](|store|, |funcaddr|).
+1. Let |parameters| be |functype|.
+1. Let [|parameters|] → [|results|] be |functype|.
+1. Let |param_types| be « ».
+1. [=list/iterate|For each=] |p| of |parameters|,
+    1. [=list/Append=] [$FromValueType$](|p|) to |param_types|.
+1. Let |result_types| be « ».
+1. [=list/iterate|For each=] |r| of |results|,
+    1. [=list/Append=] [$FromValueType$](|r|) to |result_types|.
+1. Return «[ "{{FunctionType/parameters}}" → |param_types|, "{{FunctionType/results}}" → |result_types| ]».
+
+</div>
+
+<div algorithm>
+  To <dfn>construct a new WebAssembly Function</dfn> from a JavaScript [=callable=] object |callable| and {{FunctionType}} |signature|, perform the following steps:
+
+    1. Assert: [=IsCallable=](|callable|).
+    1. Let |store| be the [=surrounding agent=]'s [=associated store=].
+    1. Let |signature| be «[ "{{FunctionType/parameters}}" → |parameters|, "{{FunctionType/results}}" → |results| ]».
+    1. Let [|parameters|] → [|results|] be |functype|.
+    1. Let (|store|, |funcaddr|) be [=func_alloc=](|store|, |functype|, |callable|).
+    1. Return the result of creating [=a new Exported Function=] from |funcaddr|.
 </div>
 
 <h3 id="error-objects">Error Objects</h3>
