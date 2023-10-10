@@ -1307,7 +1307,6 @@ The <dfn method for="Function">type()</dfn> method steps are:
 1. Let |store| be the [=surrounding agent=]'s [=associated store=].
 1. Let |funcaddr| be **this**.\[[Function]].
 1. Let |functype| be [=func_type=](|store|, |funcaddr|).
-1. Let |parameters| be |functype|.
 1. Let [|parameters|] → [|results|] be |functype|.
 1. Let |param_types| be « ».
 1. [=list/iterate|For each=] |p| of |parameters|,
@@ -1325,7 +1324,13 @@ The <dfn method for="Function">type()</dfn> method steps are:
     1. Assert: [=IsCallable=](|callable|).
     1. Let |store| be the [=surrounding agent=]'s [=associated store=].
     1. Let |signature| be «[ "{{FunctionType/parameters}}" → |parameters|, "{{FunctionType/results}}" → |results| ]».
-    1. Let [|parameters|] → [|results|] be |functype|.
+    1. Let |param_types| be « ».
+    1. [=list/iterate|For each=] |p| of |parameters|,
+        1. [=list/Append=] [$ToValueType$](|p|) to |param_types|.
+    1. Let |result_types| be « ».
+    1. [=list/iterate|For each=] |r| of |results|,
+        1. [=list/Append=] [$ToValueType$](|r|) to |result_types|.
+    1. Let [|param_types|] → [|result_types|] be |functype|.
     1. Let (|store|, |funcaddr|) be [=func_alloc=](|store|, |functype|, |callable|).
     1. Return the result of creating [=a new Exported Function=] from |funcaddr|.
 </div>

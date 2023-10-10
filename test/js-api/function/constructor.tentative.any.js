@@ -65,7 +65,6 @@ test(() => {
 }, "fail to construct with non-callable object")
 
 test(() => {
-    assert_implements(WebAssembly.Function, "WebAssembly.Function is not implemented");
     const fun = new WebAssembly.Function({parameters: ["i32", "i32"], results: ["i32"]}, addxy);
     const rewrapped = new WebAssembly.Function({parameters: ["f32"], results: ["i32"]}, fun);
     assert_throws_js(TypeError, () => rewrapped(1.2))
