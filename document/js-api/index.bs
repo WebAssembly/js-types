@@ -1333,6 +1333,7 @@ The <dfn method for="Function">type()</dfn> method steps are:
     1. Let [|param_types|] → [|result_types|] be |functype|.
     1. Let (|store|, |funcaddr|) be [=func_alloc=](|store|, |functype|, |callable|).
     1. Return the result of creating [=a new Exported Function=] from |funcaddr|.
+
 </div>
 
 <h3 id="error-objects">Error Objects</h3>
