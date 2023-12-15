@@ -65,7 +65,67 @@ test(() => {
 }, "fail to construct with non-callable object")
 
 test(() => {
-    const fun = new WebAssembly.Function({parameters: ["i32", "i32"], results: ["i32"]}, addxy);
-    const rewrapped = new WebAssembly.Function({parameters: ["f32"], results: ["i32"]}, fun);
-    assert_throws_js(TypeError, () => rewrapped(1.2))
-}, "rewrapping WebAssembly.Function with a signature mismatch fails on call only")
+    function testRewrap(initialSig, rewrapSig, rewrapArgs, returnVal, tester) {
+        let fnArgs = null;
+        function jsFn() { fnArgs = arguments; return returnVal; }
+        const fun = new WebAssembly.Function(initialSig, jsFn);
+        const rewrapped = new WebAssembly.Function(rewrapSig, fun);
+        const result = rewrapped.apply(undefined, rewrapArgs)
+        tester(fnArgs, result)
+    }
+    // less params
+    testRewrap(
+        {parameters: ["i32", "i32"], results: ["i32"]},
+        {parameters: ["f32"], results: ["i32"]},
+        [1.2], 0,
+        (args, res) => {
+            assert_equals(args.length, 2);
+            assert_equals(args[0], 1);
+            assert_equals(res, 0);
+        }
+    )
+
+    // more params
+    testRewrap(
+        {parameters: ["f32"], results: ["i32"]},
+        {parameters: ["i32", "i32"], results: ["i32"]},
+        [1.2, 2], 0,
+        (args, res) => {
+            assert_equals(args.length, 1);
+            assert_equals(args[0], 1);
+            assert_equals(res, 0);
+        }
+    )
+
+    // return conversion
+    testRewrap(
+        {parameters: ["f32"], results: ["f32"]},
+        {parameters: ["i32"], results: ["i32"]},
+        [1], 1.2,
+        (args, res) => assert_equals(res, 1)
+    )
+
+    // error on conversion
+    assert_throws_js(
+        TypeError,
+        () =>
+            testRewrap(
+                {parameters: ["i32"], results: ["i32"]},
+                {parameters: ["i64"], results: ["i32"]},
+                [1n], 1.2,
+                (args, res) => assert_equals(res, 1)
+            )
+    );
+
+    testRewrap(
+        {parameters: ["i32", "externref"], results: ["f32"]},
+        {parameters: ["f32"], results: ["i32"]},
+        [NaN, {}], NaN,
+        (args, res) => {
+            assert_equals(args.length, 2);
+            assert_equals(args[0], 0);
+            assert_equals(args[1], undefined);
+            assert_equals(res, 0);
+        }
+    )
+}, "rewrapping WebAssembly.Function with a different signature causes double conversion")
