@@ -158,10 +158,12 @@ urlPrefix: https://webassembly.github.io/spec/core/; spec: WebAssembly; type: df
         text: f32
         text: f64
         text: v128
-    url: syntax/types.html#syntax-reftype
+    url: syntax/types.html#reference-types
         text: reftype
+    url: syntax/types.html#heap-types
         text: funcref
         text: externref
+        text: anyref
     text: function element; url: exec/runtime.html#syntax-funcelem
     text: import component; url: syntax/modules.html#imports
     text: external value; url: exec/runtime.html#syntax-externval
@@ -951,16 +953,27 @@ The <dfn method for="Table">type()</dfn> method steps are:
 <h3 id="globals">Globals</h3>
 
 <pre class="idl">
-enum ValueType {
+enum PrimitiveType {
   "i32",
   "i64",
   "f32",
   "f64",
-  "v128",
-  "externref",
-  "funcref",
-  "anyfunc",
+  "v128"
 };
+
+enum RefTypeKind {
+  "func",
+  "extern",
+  "any"
+};
+
+dictionary RefType {
+  required RefTypeKind ref;
+  boolean nullable = true;
+};
+
+typedef (PrimitiveType or RefType) ValueType;
+
 </pre>
 
 Note: this type may be extended with additional cases in future versions of WebAssembly.
@@ -1012,9 +1025,12 @@ which can be simultaneously referenced by multiple {{Instance}} objects. Each
     1. If |s| equals "f32", return [=f32=].
     1. If |s| equals "f64", return [=f64=].
     1. If |s| equals "v128", return [=v128=].
-    1. If |s| equals "funcref", return [=funcref=].
-    1. If |s| equals "anyfunc", return [=funcref=].
-    1. If |s| equals "externref", return [=externref=].
+    1. If |s| equals {{RefType}}, return [=v128=].
+        1. Let |nullable| be |s|.nullable.
+        1. Let |kind| be |s|.ref.
+        1. If |kind| equals "func", return [=reftype=]([=funcref=], |nullable|).
+        1. If |kind| equals "extern", return [=reftype=]([=externref=], |nullable|).
+        1. Otherwise throw an {{TypeError}} exception.
     1. Assert: This step is not reached.
 </div>
 
@@ -1022,13 +1038,17 @@ which can be simultaneously referenced by multiple {{Instance}} objects. Each
 
 The algorithm <dfn abstract-op>FromValueType</dfn>(|s|) performs the following steps:
 
-1. If |s| equals [=i32=], return "{{ValueType/i32}}".
-1. If |s| equals [=i64=], return "{{ValueType/i64}}".
-1. If |s| equals [=f32=], return "{{ValueType/f32}}".
-1. If |s| equals [=f64=], return "{{ValueType/f64}}".
-1. If |s| equals [=v128=], return "{{ValueType/v128}}".
-1. If |s| equals [=funcref=], return "{{ValueType/funcref}}".
-1. If |s| equals [=externref=], return "{{ValueType/externref}}".
+1. If |s| equals [=i32=], return "{{PrimitiveType/i32}}".
+1. If |s| equals [=i64=], return "{{PrimitiveType/i64}}".
+1. If |s| equals [=f32=], return "{{PrimitiveType/f32}}".
+1. If |s| equals [=f64=], return "{{PrimitiveType/f64}}".
+1. If |s| equals [=v128=], return "{{PrimitiveType/v128}}".
+1. If |s| equals [=reftype=],
+    1. Let |nullable| be |s|.|nullable|.
+    1. Let |heaptype| be |s|.|heaptype|.
+    1. If |heaptype| equals [=funcref=], return «[ "{{RefType/ref}}" → "{{RefTypeKind/func}}", "{{RefType/nullable}}" → |nullable| ]».
+    1. If |heaptype| equals [=externref=], return «[ "{{RefType/ref}}" → "{{RefTypeKind/extern}}", "{{RefType/nullable}}" → |nullable| ]».
+    1. Otherwise return «[ "{{RefType/ref}}" → "{{RefTypeKind/any}}", "{{RefType/nullable}}" → |nullable| ]».
 1. Assert: This step is not reached.
 
 </div>
@@ -1326,10 +1346,10 @@ The <dfn method for="Function">type()</dfn> method steps are:
     1. Let |signature| be «[ "{{FunctionType/parameters}}" → |parameters|, "{{FunctionType/results}}" → |results| ]».
     1. Let |param_types| be « ».
     1. [=list/iterate|For each=] |p| of |parameters|,
-        1. [=list/Append=] [$ToValueType$](|p|) to |param_types|.
+        1. [=list/Append=] [=ToValueType=](|p|) to |param_types|.
     1. Let |result_types| be « ».
     1. [=list/iterate|For each=] |r| of |results|,
-        1. [=list/Append=] [$ToValueType$](|r|) to |result_types|.
+        1. [=list/Append=] [=ToValueType=](|r|) to |result_types|.
     1. Let [|param_types|] → [|result_types|] be |functype|.
     1. Let (|store|, |funcaddr|) be [=func_alloc=](|store|, |functype|, |callable|).
     1. Return the result of creating [=a new Exported Function=] from |funcaddr|.
