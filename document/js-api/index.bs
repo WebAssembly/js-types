@@ -28,6 +28,7 @@ Prepare For TR: true
 urlPrefix: https://tc39.github.io/ecma262/; spec: ECMASCRIPT
     type: interface; for: ECMAScript
         text: ArrayBuffer; url: sec-arraybuffer-objects
+        text: JSFunction; url: sec-function-objects
     type: exception; for: ECMAScript
         text: Error; url: sec-error-objects
         text: NativeError; url: sec-nativeerror-constructors
@@ -1106,8 +1107,6 @@ The <dfn method for="Global">type()</dfn> method steps are:
 <h3 id="exported-functions">Exported Functions</h3>
 
 <pre class="idl">
-callback JSFunction = any (any... arguments);
-
 dictionary FunctionType {
   required sequence&lt;ValueType> parameters;
   required sequence&lt;ValueType> results;
