@@ -28,6 +28,7 @@ Prepare For TR: true
 urlPrefix: https://tc39.github.io/ecma262/; spec: ECMASCRIPT
     type: interface; for: ECMAScript
         text: ArrayBuffer; url: sec-arraybuffer-objects
+        text: JSFunction; url: sec-function-objects
     type: exception; for: ECMAScript
         text: Error; url: sec-error-objects
         text: NativeError; url: sec-nativeerror-constructors
@@ -93,6 +94,7 @@ urlPrefix: https://tc39.github.io/ecma262/; spec: ECMASCRIPT
         text: IterableToList; url: sec-iterabletolist
         text: ToBigInt64; url: #sec-tobigint64
         text: BigInt; url: #sec-ecmascript-language-types-bigint-type
+        text: BoundFunctionCreate, url: #sec-boundfunctioncreate
     type: abstract-op
         text: CreateMethodProperty; url: sec-createmethodproperty
 urlPrefix: https://webassembly.github.io/spec/core/; spec: WebAssembly; type: dfn
@@ -1106,8 +1108,6 @@ The <dfn method for="Global">type()</dfn> method steps are:
 <h3 id="exported-functions">Exported Functions</h3>
 
 <pre class="idl">
-callback JSFunction = any (any... arguments);
-
 dictionary FunctionType {
   required sequence&lt;ValueType> parameters;
   required sequence&lt;ValueType> results;
@@ -1118,6 +1118,7 @@ interface Function : JSFunction {
   constructor(FunctionType descriptor, JSFunction callable);
 
   FunctionType type();
+  JSFunction bind(any thisArg, any ...args);
 };
 </pre>
 
@@ -1315,6 +1316,17 @@ The <dfn method for="Function">type()</dfn> method steps are:
 1. [=list/iterate|For each=] |r| of |results|,
     1. [=list/Append=] [$FromValueType$](|r|) to |result_types|.
 1. Return «[ "{{FunctionType/parameters}}" → |param_types|, "{{FunctionType/results}}" → |result_types| ]».
+
+</div>
+
+<div algorithm>
+
+The <dfn method for="Function">bind(|thisArg|, ...|args|)</dfn> method steps are:
+
+1. Let |Target| be the **this** value.
+1. Let |F| be [$BoundFunctionCreate$](|Target|, |thisArg|, |args|).
+1. Set |F|.\[[Prototype]] to {{JSFunction}}.prototype.
+1. Return |F|.
 
 </div>
 
