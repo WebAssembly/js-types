@@ -40,7 +40,7 @@ jobs:
       - uses: actions/checkout@v2
       - run: pip install bikeshed && bikeshed update
       - run: bikeshed spec "document/js-api/index.bs" "document/js-api/index.html"
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: js-api-rendered
           path: document/js-api/index.html
@@ -51,7 +51,7 @@ jobs:
       - uses: actions/checkout@v2
       - run: pip install bikeshed && bikeshed update
       - run: bikeshed spec "document/web-api/index.bs" "document/web-api/index.html"
-      - uses: actions/upload-artifact@v2
+      - uses: actions/upload-artifact@v4
         with:
           name: web-api-rendered
           path: document/web-api/index.html
@@ -78,7 +78,7 @@ jobs:
       - name: Run Bikeshed
         run: cd document/core && make bikeshed
       - name: Upload artifact
-        uses: actions/upload-artifact@v2
+        uses: actions/upload-artifact@v4
         with:
           name: core-api-rendered
           path: document/core/_build/html
@@ -89,15 +89,15 @@ jobs:
     steps:
       - uses: actions/checkout@v2
       - run: mkdir _output && cp document/index.html _output/index.html
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: js-api-rendered
           path: _output/js-api
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: web-api-rendered
           path: _output/web-api
-      - uses: actions/download-artifact@v2
+      - uses: actions/download-artifact@v4
         with:
           name: core-api-rendered
           path: _output/core
