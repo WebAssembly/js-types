@@ -36,7 +36,7 @@ type ValueType = "i32" | "i64" | "f32" | "f64" | "v128" | RefType
 type GlobalType = {value: ValueType, mutable: boolean}
 type MemoryType = {limits: Limits}
 type TableType = {limits: Limits, element: RefType}
-type Limits = {min: number, max?: number}  // see below
+type Limits = {minimum: number, maximum?: number}  // see below
 type FunctionType = {parameters: ValueType[], results: ValueType[]}
 type ExternType =
   {kind: "function", type: FunctionType} |
